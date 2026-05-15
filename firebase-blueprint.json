@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "Canto": {
+      "title": "Canto",
+      "description": "Uma música litúrgica",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "letra": { "type": "string" },
+        "ano": { "type": "string" },
+        "tipo": { "type": "string" },
+        "season": { "type": "string" },
+        "tom": { "type": "string" },
+        "bpm": { "type": "number" },
+        "compasso": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "letra", "ownerId"]
+    },
+    "AgendaItem": {
+      "title": "AgendaItem",
+      "description": "Um evento na agenda",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "local": { "type": "string" },
+        "data": { "type": "string", "format": "date-time" },
+        "recorrencia": { "type": "string" },
+        "cantosIds": { "type": "array" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["titulo", "data", "ownerId"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil do usuário",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "categorias": { "type": "array" },
+        "temposLiturgicos": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email"]
+    }
+  },
+  "firestore": {
+    "cantos": {
+      "schema": "Canto",
+      "description": "Coleção de cantos dos usuários"
+    },
+    "agenda": {
+      "schema": "AgendaItem",
+      "description": "Coleção de eventos da agenda dos usuários"
+    },
+    "users": {
+      "schema": "UserProfile",
+      "description": "Perfis dos usuários"
+    }
+  }
+}

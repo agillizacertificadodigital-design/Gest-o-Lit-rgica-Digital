@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entities
+    function isValidCanto(data) {
+      return data.nome is string && data.nome.size() <= 200 &&
+             data.letra is string && data.letra.size() <= 50000 &&
+             data.ownerId == request.auth.uid;
+    }
+
+    function isValidAgendaItem(data) {
+      return data.titulo is string && data.titulo.size() <= 200 &&
+             data.data is string &&
+             data.ownerId == request.auth.uid;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId == request.auth.uid &&
+             data.email is string;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) && isValidUserProfile(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['categorias', 'temposLiturgicos']);
+    }
+
+    match /cantos/{cantoId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidCanto(incoming());
+      allow update: if isSignedIn() && existing().ownerId == request.auth.uid && isValidCanto(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['nome', 'letra', 'ano', 'tipo', 'season', 'tom', 'bpm', 'compasso', 'updatedAt']);
+      allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
+    }
+
+    match /agenda/{agendaId} {
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidAgendaItem(incoming());
+      allow update: if isSignedIn() && existing().ownerId == request.auth.uid && isValidAgendaItem(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['titulo', 'local', 'data', 'recorrencia', 'cantosIds', 'updatedAt']);
+      allow delete: if isSignedIn() && existing().ownerId == request.auth.uid;
+    }
+  }
+}

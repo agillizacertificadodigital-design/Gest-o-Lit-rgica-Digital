@@ -1,0 +1,2148 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+  Church, 
+  Calendar, 
+  Music, 
+  Settings, 
+  Plus, 
+  Search, 
+  BookOpen, 
+  Trash2, 
+  Edit, 
+  X, 
+  MapPin, 
+  Clock,
+  ChevronRight,
+  ChevronLeft,
+  LayoutList,
+  ListMusic,
+  Maximize2,
+  Minus,
+  Play,
+  Pause,
+  ArrowUp,
+  ArrowDown,
+  RefreshCcw,
+  Hourglass,
+  Baby,
+  Leaf,
+  Cross,
+  Sun,
+  Music2,
+  Download,
+  Upload,
+  Share2,
+  FileJson,
+  FileText,
+  Check,
+  Info,
+  LogOut,
+  User as UserIcon,
+  Loader2
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
+import { Canto, AgendaItem, LiturgicalSeason } from './types';
+import { INITIAL_SEASONS, INITIAL_CATEGORIES, NOTES, NOTE_MAP } from './constants';
+import { auth, db, OperationType, handleFirestoreError } from './lib/firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  query, 
+  where, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  serverTimestamp,
+  orderBy
+} from 'firebase/firestore';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { Auth } from './components/Auth';
+
+export default function App() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    document.title = "Gestão Litúrgica Digital";
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setNotification({ message, type });
+  };
+
+  // Tabs: 'tempos' | 'agenda' | 'cantos' | 'config'
+  const [activeTab, setActiveTab] = useState('tempos');
+  
+  // Data State
+  const [cantos, setCantos] = useState<Canto[]>([]);
+  const [agenda, setAgenda] = useState<AgendaItem[]>([]);
+  const [categorias, setCategorias] = useState<string[]>(INITIAL_CATEGORIES);
+  const [temposLiturgicos, setTemposLiturgicos] = useState(INITIAL_SEASONS);
+
+  // Firestore Subscriptions
+  useEffect(() => {
+    if (!user) {
+      setCantos([]);
+      setAgenda([]);
+      setCategorias(INITIAL_CATEGORIES);
+      setTemposLiturgicos(INITIAL_SEASONS);
+      return;
+    }
+
+    const qCantos = query(collection(db, 'cantos'), where('ownerId', '==', user.uid), orderBy('nome', 'asc'));
+    const unsubscribeCantos = onSnapshot(qCantos, (snapshot) => {
+      setCantos(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as any)));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'cantos'));
+
+    const qAgenda = query(collection(db, 'agenda'), where('ownerId', '==', user.uid), orderBy('data', 'asc'));
+    const unsubscribeAgenda = onSnapshot(qAgenda, (snapshot) => {
+      setAgenda(snapshot.docs.map(d => ({ ...d.data(), id: d.id } as any)));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'agenda'));
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.categorias) setCategorias(data.categorias);
+        if (data.temposLiturgicos && data.temposLiturgicos.length > 0) setTemposLiturgicos(data.temposLiturgicos);
+      }
+    }, (err) => handleFirestoreError(err, OperationType.GET, `users/${user.uid}`));
+
+    return () => {
+      unsubscribeCantos();
+      unsubscribeAgenda();
+      unsubscribeUser();
+    };
+  }, [user]);
+
+  // Selected Season for the Tempos view
+  const [selectedSeason, setSelectedSeason] = useState<LiturgicalSeason | null>(null);
+
+  // Persistence
+  useEffect(() => {
+    localStorage.setItem('v5_cantos', JSON.stringify(cantos));
+  }, [cantos]);
+
+  useEffect(() => {
+    localStorage.setItem('v5_agenda', JSON.stringify(agenda));
+  }, [agenda]);
+
+  useEffect(() => {
+    localStorage.setItem('v5_cats', JSON.stringify(categorias));
+  }, [categorias]);
+
+  useEffect(() => {
+    localStorage.setItem('v5_tempos', JSON.stringify(temposLiturgicos));
+  }, [temposLiturgicos]);
+
+  // Modal States
+  const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
+  const [editingAgenda, setEditingAgenda] = useState<AgendaItem | null>(null);
+  
+  const [isCantoModalOpen, setIsCantoModalOpen] = useState(false);
+  const [editingCanto, setEditingCanto] = useState<Canto | null>(null);
+  
+  const [isReadingModeOpen, setIsReadingModeOpen] = useState(false);
+  const [readingCanto, setReadingCanto] = useState<Canto | null>(null);
+  const [readingAgenda, setReadingAgenda] = useState<AgendaItem | null>(null);
+  const [readingIndex, setReadingIndex] = useState(0);
+
+  const [fontSize, setFontSize] = useState(20);
+  const [keyOffset, setKeyOffset] = useState(0);
+  const [isChordHighlighterActive, setIsChordHighlighterActive] = useState(false);
+  const [showChords, setShowChords] = useState(true);
+
+  // Auto-Scroll State
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [scrollSpeed, setScrollSpeed] = useState(1);
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
+  const scrollAccumulatorRef = React.useRef(0);
+
+  const activeScrollElement = scrollElement;
+
+  // Auto-Scroll Effect
+  useEffect(() => {
+    if (!isAutoScrolling || !activeScrollElement) {
+      scrollAccumulatorRef.current = 0;
+      return;
+    }
+
+    let animationId: number;
+    let lastTime = performance.now();
+
+    const scroll = (timestamp: number) => {
+      const deltaTime = timestamp - lastTime;
+      lastTime = timestamp;
+
+      // Base speed: 0.04 pixels per millisecond at 1x (~40px/sec)
+      const baseSpeed = 0.04; 
+      scrollAccumulatorRef.current += scrollSpeed * baseSpeed * deltaTime;
+      
+      if (scrollAccumulatorRef.current >= 1) {
+        const move = Math.floor(scrollAccumulatorRef.current);
+        activeScrollElement.scrollTop += move;
+        scrollAccumulatorRef.current -= move;
+      }
+      
+      animationId = requestAnimationFrame(scroll);
+    };
+
+    animationId = requestAnimationFrame(scroll);
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [isAutoScrolling, scrollSpeed, activeScrollElement]);
+
+  // Reset auto-scroll when opening/changing
+  useEffect(() => {
+    setIsAutoScrolling(false);
+    scrollAccumulatorRef.current = 0;
+    if (activeScrollElement) {
+      activeScrollElement.scrollTop = 0;
+    }
+  }, [readingCanto?.id, readingAgenda?.id, readingIndex, activeScrollElement]);
+
+  // Agenda Modal Selection State
+  const [selectedCantosForAgenda, setSelectedCantosForAgenda] = useState<number[]>([]);
+  const [showCantoPicker, setShowCantoPicker] = useState(false);
+
+  // Transposition Logic
+  const transposeText = (text: string, offset: number) => {
+    if (offset === 0) return text;
+
+    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const map: Record<string, number> = {
+      'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+    };
+
+    // Regex to find chords (simplistic but effective for most cifras)
+    // Matches A-G, optional # or b, then optional chord quality, and optional bass /A-G
+    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/gi;
+
+    return text.replace(chordRegex, (match) => {
+      const parts = match.split('/');
+      const mainChord = parts[0];
+      const bass = parts[1];
+
+      const transposeChordPart = (chord: string) => {
+        const rootMatch = chord.match(/^[A-G][#b]?/i);
+        if (!rootMatch) return chord;
+        const root = rootMatch[0].toUpperCase();
+        const rest = chord.slice(root.length);
+        
+        let rootIndex = map[root];
+        if (rootIndex === undefined) return chord;
+
+        let newIndex = (rootIndex + offset) % 12;
+        if (newIndex < 0) newIndex += 12;
+
+        return notes[newIndex] + rest;
+      };
+
+      let result = transposeChordPart(mainChord);
+      if (bass) {
+        result += '/' + transposeChordPart(bass);
+      }
+      return result;
+    });
+  };
+
+  const transposedLetra = useMemo(() => {
+    const canto = readingAgenda?.cantosIds 
+      ? cantos.find(c => String(c.id) === String(readingAgenda.cantosIds![readingIndex]))
+      : readingCanto;
+    
+    if (!canto) return '';
+    return transposeText(canto.letra, keyOffset);
+  }, [readingCanto, keyOffset, readingAgenda, readingIndex, cantos]);
+
+  const formattedLetra = useMemo(() => {
+    if (!transposedLetra) return null;
+    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/g;
+    const splitRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(?:\([^\)]*\))?(?:\b|(?=[/\s]))(?:\/[A-G][#b]?)?)/g;
+
+    const parts = transposedLetra.split(splitRegex);
+
+    return parts.map((part, i) => {
+      if (part.match(chordRegex)) {
+        if (!showChords) return null;
+        return (
+          <span
+            key={i}
+            className={`font-bold px-1.5 py-0.5 rounded-md mx-0.5 border shadow-sm select-none transition-all ${
+              isChordHighlighterActive 
+                ? 'text-white bg-blue-700 border-blue-800 scale-105' 
+                : 'text-blue-700 bg-blue-50/80 border-blue-100'
+            }`}
+            style={{ display: 'inline-block', lineHeight: '1' }}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  }, [transposedLetra, isChordHighlighterActive, showChords]);
+
+  const [searchCanto, setSearchCanto] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterMoment, setFilterMoment] = useState('todos');
+  const [filterYear, setFilterYear] = useState('todos');
+
+  // Debounce search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchCanto);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchCanto]);
+
+  // Calculated State
+  const currentKey = useMemo(() => {
+    const canto = readingAgenda?.cantosIds 
+      ? cantos.find(c => String(c.id) === String(readingAgenda.cantosIds![readingIndex]))
+      : readingCanto;
+
+    if (!canto?.tom) return String(keyOffset > 0 ? `+${keyOffset}` : keyOffset);
+    if (keyOffset === 0) return String(canto.tom).toUpperCase();
+
+    // Reuse the transposition logic for the display key
+    const transposeChordPart = (chord: string, offset: number) => {
+      const rootMatch = chord.match(/^[A-G][#b]?/i);
+      if (!rootMatch) return chord;
+      const root = rootMatch[0].toUpperCase();
+      const rest = chord.slice(root.length);
+      
+      let rootIndex = NOTE_MAP[root];
+      if (rootIndex === undefined) return chord;
+
+      let newIndex = (rootIndex + offset) % 12;
+      if (newIndex < 0) newIndex += 12;
+
+      return NOTES[newIndex] + rest;
+    };
+
+    return String(transposeChordPart(canto.tom, keyOffset)).toUpperCase();
+  }, [readingCanto?.tom, keyOffset, readingAgenda, readingIndex, cantos]);
+
+  // Helpers
+  const getSeasonInfo = (id: string) => {
+    return temposLiturgicos.find(t => t.id === id) || temposLiturgicos[temposLiturgicos.length - 1];
+  };
+
+  const getSeasonIcon = (id: string | undefined) => {
+    if (!id) return <Music2 className="w-6 h-6" />;
+    const info = temposLiturgicos.find(t => t.id === id);
+    const iconName = info?.icon || 'music';
+
+    switch (iconName) {
+      case 'hourglass': return <Hourglass className="w-6 h-6" />;
+      case 'baby': return <Baby className="w-6 h-6" />;
+      case 'leaf': return <Leaf className="w-6 h-6" />;
+      case 'cross': return <Cross className="w-6 h-6" />;
+      case 'sun': return <Sun className="w-6 h-6" />;
+      case 'music': return <Music2 className="w-6 h-6" />;
+      default: return <Music2 className="w-6 h-6" />;
+    }
+  };
+
+  const filteredCantos = useMemo(() => {
+    return cantos.filter(c => {
+      const matchesSearch = c.nome.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+                           c.letra.toLowerCase().includes(debouncedSearch.toLowerCase());
+      const matchesMoment = filterMoment === 'todos' || c.tipo === filterMoment;
+      const matchesYear = filterYear === 'todos' || c.ano === filterYear;
+      return matchesSearch && matchesMoment && matchesYear;
+    });
+  }, [cantos, debouncedSearch, filterMoment, filterYear]);
+
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    const instances: AgendaItem[] = [];
+
+    agenda.forEach(item => {
+      if (!item.recorrencia || item.recorrencia === 'unica') {
+        if (new Date(item.data).getTime() >= now.getTime() - (3 * 60 * 60 * 1000)) { // 3h margin
+          instances.push(item);
+        }
+      } else {
+        // Calculate next occurrence
+        let current = new Date(item.data);
+        while (current.getTime() < now.getTime() - (12 * 60 * 60 * 1000)) { // 12h margin to keep showing on the day
+          if (item.recorrencia === 'mensal') current.setMonth(current.getMonth() + 1);
+          else if (item.recorrencia === 'anual') current.setFullYear(current.getFullYear() + 1);
+          else break;
+        }
+        instances.push({
+          ...item,
+          data: current.toISOString()
+        });
+      }
+    });
+
+    return instances
+      .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+      .slice(0, 5);
+  }, [agenda]);
+
+  const getCantosBySeason = (season: LiturgicalSeason) => {
+    return cantos.filter(c => c.season === season);
+  };
+
+  // Actions: Agenda
+  const handleSaveAgenda = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const formData = new FormData(e.currentTarget);
+    const titulo = formData.get('titulo') as string;
+    const local = formData.get('local') as string;
+    const data = formData.get('data') as string;
+    const recorrencia = formData.get('recorrencia') as 'unica' | 'mensal' | 'anual';
+    const syncGoogle = formData.get('syncGoogle') === 'on';
+
+    if (!titulo || !data) return;
+
+    const newItem = {
+      titulo,
+      local,
+      data,
+      recorrencia: recorrencia || 'unica',
+      cantosIds: selectedCantosForAgenda,
+      ownerId: user.uid,
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      if (editingAgenda) {
+        await updateDoc(doc(db, 'agenda', String(editingAgenda.id)), newItem);
+        showNotification(`Evento "${titulo}" atualizado com sucesso.`, 'success');
+      } else {
+        await addDoc(collection(db, 'agenda'), {
+          ...newItem,
+          createdAt: serverTimestamp()
+        });
+        showNotification(`Evento "${titulo}" criado com sucesso.`, 'success');
+      }
+
+      if (syncGoogle) {
+        const gStart = data.replace(/[-:]/g, '') + '00';
+        const dateObj = new Date(data);
+        dateObj.setHours(dateObj.getHours() + 1);
+        
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const gEnd = dateObj.getFullYear() + 
+                     pad(dateObj.getMonth() + 1) + 
+                     pad(dateObj.getDate()) + 'T' + 
+                     pad(dateObj.getHours()) + 
+                     pad(dateObj.getMinutes()) + '00';
+
+        const selectedCantosList = selectedCantosForAgenda
+          .map(id => cantos.find(c => String(c.id) === String(id))?.nome)
+          .filter(Boolean)
+          .join('\n');
+        
+        const details = selectedCantosList ? `Músicas vinculadas:\n${selectedCantosList}` : '';
+        
+        let googleUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&location=${encodeURIComponent(local)}&dates=${gStart}/${gEnd}&details=${encodeURIComponent(details)}`;
+        
+        if (recorrencia === 'mensal') googleUrl += '&recur=RRULE:FREQ=MONTHLY';
+        if (recorrencia === 'anual') googleUrl += '&recur=RRULE:FREQ=YEARLY';
+
+        window.open(googleUrl, '_blank');
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'agenda');
+    }
+
+    setIsAgendaModalOpen(false);
+    setEditingAgenda(null);
+    setSelectedCantosForAgenda([]);
+    setShowCantoPicker(false);
+  };
+
+  const handleDeleteAgenda = async (id: string | number) => {
+    const item = agenda.find(a => String(a.id) === String(id));
+    if (confirm(`Tem certeza que deseja excluir o evento "${item?.titulo}"?`)) {
+      try {
+        await deleteDoc(doc(db, 'agenda', String(id)));
+        showNotification('Evento excluído.', 'info');
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `agenda/${id}`);
+      }
+    }
+  };
+
+  // Actions: Cantos
+  const handleSaveCanto = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const formData = new FormData(e.currentTarget);
+    const nome = formData.get('nome') as string;
+    const letra = formData.get('letra') as string;
+    const ano = formData.get('ano') as 'A' | 'B' | 'C' | 'Geral';
+    const tipo = formData.get('tipo') as string;
+    const season = formData.get('season') as LiturgicalSeason;
+    const tom = formData.get('tom') as string;
+    const bpm = formData.get('bpm') ? Number(formData.get('bpm')) : null;
+    const compasso = formData.get('compasso') as string;
+
+    if (!nome) return;
+
+    const newItem = {
+      nome,
+      letra,
+      ano,
+      tipo,
+      season,
+      tom,
+      bpm,
+      compasso,
+      ownerId: user.uid,
+      updatedAt: serverTimestamp()
+    };
+
+    try {
+      if (editingCanto) {
+        await updateDoc(doc(db, 'cantos', String(editingCanto.id)), newItem);
+        showNotification(`Música "${nome}" atualizada com sucesso.`, 'success');
+      } else {
+        await addDoc(collection(db, 'cantos'), {
+          ...newItem,
+          createdAt: serverTimestamp()
+        });
+        showNotification(`Música "${nome}" adicionada ao repertório.`, 'success');
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'cantos');
+    }
+
+    setIsCantoModalOpen(false);
+    setEditingCanto(null);
+  };
+
+  const handleDeleteCanto = async (id: string | number) => {
+    const item = cantos.find(c => String(c.id) === String(id));
+    if (confirm(`Tem certeza que deseja excluir a música "${item?.nome}"?`)) {
+      try {
+        await deleteDoc(doc(db, 'cantos', String(id)));
+        showNotification('Música removida do repertório.', 'info');
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `cantos/${id}`);
+      }
+    }
+  };
+
+  // Actions: Categories
+  const handleAddCategory = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const formData = new FormData(e.currentTarget);
+    const nova = formData.get('nova') as string;
+    if (nova && !categorias.includes(nova)) {
+      const updated = [...categorias, nova];
+      try {
+        await updateDoc(doc(db, 'users', user.uid), { categorias: updated });
+        showNotification(`Momento "${nova}" adicionado.`, 'success');
+        e.currentTarget.reset();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+      }
+    }
+  };
+
+  const handleDeleteCategory = async (cat: string) => {
+    if (!user) return;
+    const updated = categorias.filter(c => c !== cat);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { categorias: updated });
+      showNotification(`Momento "${cat}" removido.`, 'info');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+    }
+  };
+
+  const handleExportData = () => {
+    try {
+      const data = {
+        version: '1.0',
+        cantos,
+        agenda,
+        categorias,
+        temposLiturgicos,
+        exportDate: new Date().toISOString()
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup_completo_liturgia_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      showNotification('Backup exportado com sucesso. Verifique seus downloads.', 'success');
+    } catch (err) {
+      showNotification('Falha ao exportar backup.', 'error');
+      console.error('Export Error:', err);
+    }
+  };
+
+  const handleImportData = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    console.log('Import: Iniciando leitura do arquivo:', file.name);
+
+    try {
+      const text = await file.text();
+      if (!text || text.trim() === '') {
+        showNotification('O arquivo selecionado está vazio.', 'error');
+        return;
+      }
+
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e: any) {
+        console.error('Import: Erro ao parsear JSON:', e);
+        showNotification(`Erro de formato JSON: ${e.message}`, 'error');
+        return;
+      }
+
+      console.log('Import: Dados JSON carregados:', json);
+
+      // 1. Individual song import
+      const isSong = json.nome && json.letra !== undefined && !json.cantos;
+      if (isSong) {
+        if (confirm(`Deseja importar a música "${json.nome}"?`)) {
+          const song = {
+            id: String(json.id) || String(Date.now()),
+            ano: ['A', 'B', 'C', 'Geral'].includes(json.ano) ? json.ano : 'Geral',
+            tipo: json.tipo || 'Outros',
+            nome: json.nome,
+            letra: json.letra,
+            season: json.season || 'Comum',
+            tom: json.tom || '',
+            bpm: json.bpm ? Number(json.bpm) : null,
+            compasso: json.compasso || '',
+            ownerId: user.uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+
+          await addDoc(collection(db, 'cantos'), song);
+          setActiveTab('cantos');
+          showNotification(`Música "${json.nome}" importada com sucesso.`, 'success');
+        }
+        return;
+      }
+
+      // 2. Full Backup or Song Array
+      const hasCantos = Array.isArray(json.cantos);
+      const isArrayOfSongs = Array.isArray(json) && json.length > 0 && json[0].nome && json[0].letra !== undefined;
+
+      if (hasCantos || isArrayOfSongs) {
+        const msg = isArrayOfSongs 
+          ? `Deseja importar uma lista com ${json.length} músicas?` 
+          : 'Deseja restaurar este backup do sistema? Isso substituirá seus dados atuais em nuvem.';
+        
+        if (confirm(msg)) {
+          const incomingCantos = isArrayOfSongs ? json : (json.cantos || []);
+          
+          // Import songs sequentially to avoid rate limits/conflicts
+          for (const c of incomingCantos) {
+            await addDoc(collection(db, 'cantos'), {
+              ...c,
+              id: undefined, // Let Cloud Firestore generate ID
+              ownerId: user.uid,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
+
+          if (!isArrayOfSongs) {
+            if (json.agenda) {
+              for (const a of json.agenda) {
+                await addDoc(collection(db, 'agenda'), {
+                  ...a,
+                  id: undefined,
+                  ownerId: user.uid,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                });
+              }
+            }
+            if (json.categorias || json.temposLiturgicos) {
+              await updateDoc(doc(db, 'users', user.uid), {
+                categorias: json.categorias || categorias,
+                temposLiturgicos: json.temposLiturgicos || temposLiturgicos
+              });
+            }
+          }
+          
+          setActiveTab('cantos');
+          showNotification('Dados importados para a nuvem com sucesso.', 'success');
+        }
+      } else {
+        console.warn('Import: Formato não reconhecido.', json);
+        showNotification('O arquivo não foi reconhecido como um formato válido de música ou backup.', 'error');
+      }
+    } catch (err: any) {
+      console.error('Import: Erro crítico:', err);
+      showNotification(`Erro ao importar dados: ${err.message || 'Erro desconhecido'}`, 'error');
+    } finally {
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
+  const exportCantoAsPDF = (canto: Canto, currentKey?: string) => {
+    try {
+      const doc = new jsPDF();
+      const margin = 20;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const contentWidth = pageWidth - (margin * 2);
+      let cursorY = margin;
+
+      // Helper to check for page break
+      const checkPageBreak = (neededHeight: number) => {
+        if (cursorY + neededHeight > pageHeight - margin) {
+          doc.addPage();
+          cursorY = margin;
+        }
+      };
+
+      // Header
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text(canto.nome, margin, cursorY);
+      cursorY += 12;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      const infoText = `Momento: ${canto.tipo} | Tom: ${currentKey || canto.tom} | Ano: ${canto.ano || 'Geral'}${canto.bpm ? ` | BPM: ${canto.bpm}` : ''}${canto.compasso ? ` | Compasso: ${canto.compasso}` : ''}`;
+      doc.text(infoText, margin, cursorY);
+      cursorY += 15;
+
+      // Lyrics
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.setFont('courier', 'normal'); 
+
+      const lyricsToExport = showChords ? canto.letra : canto.letra.replace(/\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/g, '');
+      
+      const lines = doc.splitTextToSize(lyricsToExport, contentWidth);
+      
+      lines.forEach((line: string) => {
+        checkPageBreak(7);
+        doc.text(line, margin, cursorY);
+        cursorY += 7;
+      });
+
+      doc.save(`${canto.nome.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+      showNotification(`PDF de "${canto.nome}" gerado com sucesso.`, 'success');
+    } catch (err) {
+      showNotification('Erro ao gerar PDF da música.', 'error');
+      console.error('PDF Export Error:', err);
+    }
+  };
+
+  const exportCantoAsJSON = (canto: Canto) => {
+    try {
+      const blob = new Blob([JSON.stringify(canto, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${canto.nome.toLowerCase().replace(/\s+/g, '_')}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showNotification(`Arquivo JSON de "${canto.nome}" exportado para downloads.`, 'success');
+    } catch (err) {
+      showNotification('Erro ao exportar música como JSON.', 'error');
+      console.error('JSON Export Error:', err);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+        <p className="text-slate-500 font-bold font-serif">Iniciando Liturgia Digital...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-blue-900 flex flex-col items-center justify-center p-4">
+        <div className="container max-w-lg">
+          <div className="text-center text-white mb-10">
+            <div className="inline-flex p-4 bg-white/10 rounded-3xl backdrop-blur-md mb-6">
+              <Church className="w-12 h-12" />
+            </div>
+            <h1 className="text-4xl font-serif font-black mb-3 leading-tight tracking-tight">Gestão Litúrgica Digital</h1>
+            <p className="text-blue-200 font-medium">Sua ferramenta completa para organização de cantos e agenda paroquial.</p>
+          </div>
+          <Auth />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-50 min-h-screen text-slate-900 font-sans pb-24">
+      {/* Navbar */}
+      <nav className="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div className="container mx-auto flex justify-between items-center px-4">
+          <h1 className="text-xl font-bold flex items-center tracking-tight gap-2">
+            <Church className="w-6 h-6" /> 
+            <span className="hidden sm:inline">Gestão Litúrgica Digital</span>
+            <span className="sm:hidden">Liturgia Digital</span>
+          </h1>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="text-[10px] font-black text-blue-300 uppercase tracking-widest leading-none">Usuário</span>
+              <span className="text-xs font-bold">{user.displayName || user.email}</span>
+            </div>
+            <button 
+              onClick={() => {
+                if (confirm('Deseja realmente sair?')) {
+                  signOut(auth);
+                }
+              }}
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-blue-200 hover:text-white"
+              title="Sair"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Tabs */}
+      <div className="bg-white shadow-md sticky top-[60px] z-40">
+        <div className="container mx-auto flex justify-around">
+          {[
+            { id: 'tempos', icon: <Calendar className="w-5 h-5" />, label: 'TEMPOS' },
+            { id: 'agenda', icon: <Clock className="w-5 h-5" />, label: 'AGENDA' },
+            { id: 'cantos', icon: <Music className="w-5 h-5" />, label: 'REPERTÓRIO' },
+            { id: 'config', icon: <Settings className="w-5 h-5" />, label: 'CONFIGURAÇÕES' },
+          ].map(tab => (
+            <button 
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-col items-center gap-1 py-4 px-2 w-full text-[10px] font-bold tracking-wider transition-all
+                ${activeTab === tab.id ? 'text-blue-700 border-b-4 border-blue-700 bg-blue-50/50' : 'text-slate-500 border-b-4 border-transparent hover:text-blue-600'}`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <main className="container mx-auto px-4 py-8">
+        <AnimatePresence mode="wait">
+          {/* TEMPOS SECTION */}
+          {activeTab === 'tempos' && (
+            <motion.section 
+              key="tempos"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="flex flex-col gap-2">
+                <h2 className="text-3xl font-serif font-bold text-blue-900">Ciclos Litúrgicos</h2>
+                <p className="text-slate-500">Explore o calendário litúrgico e encontre cantos específicos para cada tempo.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {temposLiturgicos.map(season => (
+                  <motion.button
+                    key={season.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedSeason(selectedSeason === season.id ? null : season.id)}
+                    className={`relative overflow-hidden bg-white p-6 rounded-2xl border-l-[6px] shadow-md text-left transition-shadow hover:shadow-lg
+                      ${season.borderColor} ${selectedSeason === season.id ? 'ring-2 ring-blue-500' : ''}`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className={`p-2 rounded-xl text-white ${season.color}`}>
+                        {getSeasonIcon(season.id)}
+                      </div>
+                      <ChevronRight className={`w-5 h-5 text-slate-300 transition-transform ${selectedSeason === season.id ? 'rotate-90' : ''}`} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800">{season.label}</h3>
+                    <p className="text-sm text-slate-500 mt-1">{season.description}</p>
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Sub-list of songs for the selected season */}
+              <AnimatePresence>
+                {selectedSeason && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm"
+                  >
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                          <Music className="w-5 h-5" />
+                          Cantos de {selectedSeason}
+                        </h3>
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">
+                          {getCantosBySeason(selectedSeason).length} músicas
+                        </span>
+                      </div>
+                      
+                      {getCantosBySeason(selectedSeason).length === 0 ? (
+                        <div className="text-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                          <Music2 className="w-12 h-12 text-slate-300 mx-auto mb-2" />
+                          <p className="text-slate-500">Nenhum canto cadastrado para este tempo.</p>
+                          <button 
+                            onClick={() => {
+                              const s = temposLiturgicos.find(x => x.id === selectedSeason);
+                              setEditingCanto(null);
+                              setIsCantoModalOpen(true);
+                            }}
+                            className="mt-4 text-blue-600 font-bold hover:underline"
+                          >
+                            + Adicionar primeiro canto
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {getCantosBySeason(selectedSeason).map(canto => (
+                            <div 
+                              key={canto.id} 
+                              className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 transition-colors group"
+                            >
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{canto.tipo}</span>
+                                <span className="font-bold text-slate-800">{canto.nome}</span>
+                              </div>
+                              <button 
+                                onClick={() => {
+                                  setReadingCanto(canto);
+                                  setKeyOffset(0); // Reset transpose
+                                  setIsReadingModeOpen(true);
+                                }}
+                                className="p-2 text-slate-400 group-hover:text-blue-600 transition-colors"
+                              >
+                                <BookOpen className="w-5 h-5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.section>
+          )}
+
+          {/* AGENDA SECTION */}
+          {activeTab === 'agenda' && (
+            <motion.section 
+              key="agenda"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-3xl font-serif font-bold text-blue-900">Agenda</h2>
+                  <p className="text-slate-500">Compromissos e celebrações paroquiais.</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setEditingAgenda(null);
+                    setIsAgendaModalOpen(true);
+                  }}
+                  className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-6 h-6" />
+                </button>
+              </div>
+
+              {upcomingEvents.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Próximos 5 Eventos
+                  </h3>
+                  <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 scrollbar-hide">
+                    {upcomingEvents.map(item => (
+                      <motion.div 
+                        key={`upcoming-${item.id}`}
+                        whileHover={{ y: -4 }}
+                        onClick={() => {
+                          setEditingAgenda(item);
+                          setIsAgendaModalOpen(true);
+                        }}
+                        className="min-w-[280px] bg-blue-900 text-white p-5 rounded-3xl shadow-xl shadow-blue-200/50 cursor-pointer relative overflow-hidden"
+                      >
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                          <Calendar className="w-20 h-20" />
+                        </div>
+                        <div className="relative z-10">
+                          <span className="text-[10px] font-black opacity-60 uppercase tracking-tighter">
+                            {new Date(item.data).toLocaleDateString('pt-BR', { weekday: 'long' })}
+                          </span>
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-bold text-lg leading-tight line-clamp-1">{item.titulo}</h4>
+                            {item.recorrencia && item.recorrencia !== 'unica' && (
+                              <div className="bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                <RefreshCcw className="w-3 h-3" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center text-xs font-bold bg-white/10 px-2 py-1 rounded-lg w-fit mb-2">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {new Date(item.data).toLocaleTimeString('pt-BR', { timeStyle: 'short' })}
+                          </div>
+                          <div className="flex items-center text-[10px] opacity-80">
+                            <MapPin className="w-3 h-3 mr-1" />
+                            {item.local || 'Local não definido'}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Todos os Compromissos
+                </h3>
+                {agenda.length === 0 ? (
+                  <div className="text-center py-20 bg-white rounded-3xl border border-slate-200">
+                    <Calendar className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400 font-medium font-serif text-lg">Sua agenda está vazia</p>
+                  </div>
+                ) : (
+                  agenda.map(originalItem => {
+                    let effectiveData = originalItem.data;
+                    if (originalItem.recorrencia && originalItem.recorrencia !== 'unica') {
+                      const now = new Date();
+                      let current = new Date(originalItem.data);
+                      while (current.getTime() < now.getTime() - (12 * 60 * 60 * 1000)) {
+                        if (originalItem.recorrencia === 'mensal') current.setMonth(current.getMonth() + 1);
+                        else if (originalItem.recorrencia === 'anual') current.setFullYear(current.getFullYear() + 1);
+                        else break;
+                      }
+                      effectiveData = current.toISOString();
+                    }
+                    const item = { ...originalItem, data: effectiveData };
+                    const eventDate = new Date(item.data);
+                    const isValidDate = !isNaN(eventDate.getTime());
+
+                    return (
+                      <div key={item.id} className="bg-white p-5 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                        <div 
+                          className="cursor-pointer flex-1"
+                          onClick={() => {
+                            setEditingAgenda(originalItem);
+                            setSelectedCantosForAgenda(originalItem.cantosIds || []);
+                            setIsAgendaModalOpen(true);
+                          }}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-xl text-blue-900 leading-tight">{item.titulo}</h4>
+                            {originalItem.recorrencia && originalItem.recorrencia !== 'unica' && (
+                              <span className="bg-blue-100 text-blue-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <RefreshCcw className="w-2.5 h-2.5" />
+                                {originalItem.recorrencia === 'mensal' ? 'Mensal' : 'Anual'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-4 mt-2">
+                            <div className="flex items-center text-xs text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              {item.local || 'Local não definido'}
+                            </div>
+                            <div className="flex items-center text-xs text-slate-500 font-mono">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {isValidDate ? eventDate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data inválida'}
+                            </div>
+                          </div>
+                        </div>
+                          <div className="flex gap-2">
+
+                         <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (item.cantosIds && item.cantosIds.length > 0) {
+                              setReadingAgenda(item);
+                              setReadingIndex(0);
+                              setReadingCanto(null); // Clear direct canto if using agenda
+                              setKeyOffset(0);
+                              setIsReadingModeOpen(true);
+                            } else {
+                              alert('Nenhuma música vinculada a este evento. Edite o evento para adicionar músicas.');
+                            }
+                          }}
+                          className={`p-2 rounded-xl transition-all ${item.cantosIds?.length ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-slate-300'}`}
+                          title="Abrir Folheto da Missa"
+                        >
+                          <BookOpen className="w-5 h-5" />
+                        </button>
+                         <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAgenda(item);
+                            setSelectedCantosForAgenda(item.cantosIds || []);
+                            setIsAgendaModalOpen(true);
+                          }}
+                          className="p-2 text-slate-300 hover:text-blue-500"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAgenda(item.id);
+                          }}
+                          className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                          title="Excluir Compromisso"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            </motion.section>
+          )}
+
+          {/* CANTOS SECTION */}
+          {activeTab === 'cantos' && (
+            <motion.section 
+              key="cantos"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-3xl font-serif font-bold text-blue-900">Músicas Litúrgicas</h2>
+                  <p className="text-slate-500">Mantenha seu repertório organizado.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-white text-blue-600 p-4 rounded-full shadow-lg hover:bg-blue-50 transition-colors border border-blue-100"
+                    title="Importar Música"
+                  >
+                    <Upload className="w-6 h-6" />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setEditingCanto(null);
+                      setIsCantoModalOpen(true);
+                    }}
+                    className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar por título ou letra..." 
+                      value={searchCanto}
+                      onChange={(e) => setSearchCanto(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+                    />
+                  </div>
+                  <select 
+                    value={filterMoment}
+                    onChange={(e) => setFilterMoment(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer"
+                  >
+                    <option value="todos">Todos os Momentos</option>
+                    {categorias.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <select 
+                    value={filterYear}
+                    onChange={(e) => setFilterYear(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer"
+                  >
+                    <option value="todos">Todos os Anos</option>
+                    <option value="A">Ano A</option>
+                    <option value="B">Ano B</option>
+                    <option value="C">Ano C</option>
+                    <option value="Geral">Geral</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filteredCantos.length === 0 ? (
+                  <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-slate-200">
+                    <Music className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-400 font-medium font-serif text-lg">Nenhuma música encontrada</p>
+                  </div>
+                ) : (
+                  filteredCantos.map(canto => (
+                    <div key={canto.id} className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between hover:shadow-xl hover:border-blue-100 transition-all">
+                      <div>
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex flex-wrap gap-2">
+                             <span className="bg-blue-900 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                               {canto.ano} | {canto.tipo}
+                             </span>
+                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter text-white
+                               ${temposLiturgicos.find(s => s.id === canto.season)?.color || 'bg-slate-400'}`}>
+                               {canto.season}
+                             </span>
+                             {canto.tom && (
+                               <span className="bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                                 TOM: {String(canto.tom).toUpperCase()}
+                               </span>
+                             )}
+                             {canto.bpm && (
+                               <span className="bg-slate-700 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                                 {canto.bpm} BPM
+                               </span>
+                             )}
+                             {canto.compasso && (
+                               <span className="bg-slate-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                                 {canto.compasso}
+                               </span>
+                             )}
+                          </div>
+                          <div className="flex gap-2 text-slate-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingCanto(canto);
+                                setIsCantoModalOpen(true);
+                              }}
+                              className="p-2 hover:text-blue-600"
+                            >
+                              <Edit className="w-5 h-5" />
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCanto(canto.id);
+                              }}
+                              className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                              title="Excluir Música"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-2xl leading-tight mb-3 font-serif">{canto.nome}</h4>
+                        <p className="text-sm text-slate-400 line-clamp-3 mb-6 italic leading-relaxed">
+                          {canto.letra}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setReadingCanto(canto);
+                          setReadingAgenda(null); // Clear agenda if reading individual song
+                          setKeyOffset(0); // Reset transpose when opening new song
+                          setIsReadingModeOpen(true);
+                        }}
+                        className="w-full bg-blue-50 text-blue-900 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-900 hover:text-white transition-all transform active:scale-95"
+                      >
+                        <BookOpen className="w-5 h-5" /> 
+                        MODO LEITURA
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.section>
+          )}
+
+          {/* CONFIG SECTION */}
+          {activeTab === 'config' && (
+            <motion.section 
+              key="config"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex flex-col gap-2">
+                <h2 className="text-3xl font-serif font-bold text-blue-900">Configurações</h2>
+                <p className="text-slate-500">Personalize os momentos e nomenclaturas do sistema.</p>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                <h3 className="text-xl font-bold text-slate-800 mb-4">Outras Eventualidades</h3>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!user) return;
+                  const formData = new FormData(e.currentTarget);
+                  const nome = formData.get('nome') as string;
+                  const desc = formData.get('descricao') as string;
+                  if (nome) {
+                    const novo = {
+                      id: nome,
+                      label: nome,
+                      color: 'bg-slate-500',
+                      borderColor: 'border-slate-500',
+                      description: desc || 'Personalizado pelo usuário',
+                      icon: 'music'
+                    };
+                    const updated = [...temposLiturgicos, novo];
+                    try {
+                      await updateDoc(doc(db, 'users', user.uid), { temposLiturgicos: updated });
+                      showNotification(`Eventualidade "${nome}" adicionada.`, 'success');
+                      e.currentTarget.reset();
+                    } catch (err) {
+                      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+                    }
+                  }
+                }} className="space-y-4 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <input 
+                      name="nome"
+                      type="text" 
+                      placeholder="Nome da eventualidade (ex: Hino de Padroeiros)" 
+                      className="flex-1 p-4 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      required
+                    />
+                    <input 
+                      name="descricao"
+                      type="text" 
+                      placeholder="Breve descrição" 
+                      className="flex-1 p-4 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                  </div>
+                  <button type="submit" className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                    <Plus className="w-5 h-5" />
+                    Adicionar Eventualidade
+                  </button>
+                </form>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {temposLiturgicos.map(s => (
+                    <div key={s.id} className="flex items-center justify-between gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 ${s.color} text-white rounded-xl flex items-center justify-center shadow-lg`}>
+                          {getSeasonIcon(s.id)}
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-800 block">{s.label}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">{s.description}</span>
+                        </div>
+                      </div>
+                      {/* Original seasons cannot be deleted, so hide the button */}
+                      {!INITIAL_SEASONS.find(orig => orig.id === s.id) && (
+                        <button 
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!user) return;
+                            const updated = temposLiturgicos.filter(x => x.id !== s.id);
+                            try {
+                              await updateDoc(doc(db, 'users', user.uid), { temposLiturgicos: updated });
+                              showNotification(`Eventualidade "${s.label}" removida.`, 'info');
+                            } catch (err) {
+                              handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-xl transition-all"
+                          title="Excluir Eventualidade"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                <h3 className="text-xl font-bold text-slate-800 mb-4">Momentos da Missa</h3>
+                <form onSubmit={handleAddCategory} className="flex gap-2 mb-8">
+                  <input 
+                    name="nova"
+                    type="text" 
+                    placeholder="Ex: Pós-Comunhão" 
+                    className="flex-1 p-4 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button type="submit" className="bg-emerald-600 text-white px-8 rounded-2xl font-bold hover:bg-emerald-700 transition-colors">
+                    Criar
+                  </button>
+                </form>
+                
+                <div className="flex flex-wrap gap-3">
+                  {categorias.map(cat => (
+                    <div key={cat} className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
+                      <span className="font-bold text-slate-700">{cat}</span>
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCategory(cat);
+                        }}
+                        className="text-red-400 hover:text-red-600 font-bold p-1"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-blue-900 text-white p-8 rounded-3xl shadow-lg">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-1">Backup de Dados</h3>
+                    <p className="text-blue-200 text-sm">Seus dados são salvos automaticamente no navegador.</p>
+                  </div>
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center justify-center gap-2 bg-blue-800 text-white px-6 py-3 rounded-2xl font-black hover:bg-blue-700 transition-all active:scale-95 border border-blue-700"
+                      >
+                        <Upload className="w-5 h-5" />
+                        IMPORTAR
+                      </button>
+                      <button 
+                        onClick={handleExportData}
+                        className="flex items-center justify-center gap-2 bg-white text-blue-900 px-6 py-3 rounded-2xl font-black hover:bg-blue-50 transition-all active:scale-95"
+                      >
+                        <Download className="w-5 h-5" />
+                        EXPORTAR
+                      </button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-800/50 rounded-2xl border border-blue-700/50">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Total de Músicas</p>
+                    <p className="text-3xl font-bold">{cantos.length}</p>
+                  </div>
+                   <div className="p-4 bg-blue-800/50 rounded-2xl border border-blue-700/50">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Compromissos</p>
+                    <p className="text-3xl font-bold">{agenda.length}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* UNIFIED READING / FOLHETO MODE OVERLAY */}
+      <AnimatePresence>
+        {isReadingModeOpen && (readingCanto || (readingAgenda && readingAgenda.cantosIds)) && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            ref={setScrollElement}
+            className="fixed inset-0 bg-white z-[100] overflow-y-auto overflow-x-hidden selection:bg-blue-100"
+          >
+            {(() => {
+              const currentCanto = readingAgenda?.cantosIds 
+                ? cantos.find(c => String(c.id) === String(readingAgenda.cantosIds![readingIndex]))
+                : readingCanto;
+                
+              if (!currentCanto) {
+                return (
+                  <div className="p-20 text-center flex flex-col items-center justify-center min-h-screen bg-slate-50">
+                    <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 max-w-sm">
+                      <Music2 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-slate-800 mb-2">Música não encontrada</h3>
+                      <p className="text-slate-500 mb-6 font-serif">A música selecionada pode ter sido removida ou o ID é inválido.</p>
+                      <button 
+                        onClick={() => setIsReadingModeOpen(false)}
+                        className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all"
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="container mx-auto p-4 sm:p-8 max-w-4xl min-h-screen flex flex-col relative">
+                  {/* Header Pillar */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-8 border-b border-slate-200 pb-8 sticky top-0 bg-white/95 backdrop-blur-md z-10 -mx-4 sm:-mx-8 px-4 sm:px-8 pt-4">
+                    <div className="flex-1 pr-4">
+                      <div className="flex flex-wrap gap-2 items-center mb-3">
+                        <span className={`text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tight shadow-sm ${readingAgenda ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
+                          {readingAgenda ? 'FOLHETO' : 'LEITURA'}
+                        </span>
+                        <span className="text-blue-600 font-bold uppercase text-[10px] tracking-widest">{currentCanto.season}</span>
+                        <span className="text-slate-300 font-light uppercase text-[10px]">|</span>
+                        <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">{currentCanto.tipo}</span>
+                      </div>
+                      <h2 className="text-3xl sm:text-5xl font-serif font-black text-slate-900 leading-[1.1] mb-2 tracking-tight">
+                        {currentCanto.nome}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                        {readingAgenda ? (
+                          <>
+                            <span className="text-blue-900">{readingAgenda.titulo}</span>
+                            <span className="text-slate-200">•</span>
+                            <span className="bg-slate-100 px-2 py-0.5 rounded text-[9px] text-slate-600">Música {readingIndex + 1} de {readingAgenda.cantosIds!.length}</span>
+                          </>
+                        ) : (
+                          <span>CIFRA INDIVIDUAL • REPERTÓRIO</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 sm:gap-3 mt-6 sm:mt-0 flex-wrap sm:flex-nowrap">
+                      {currentCanto.bpm && (
+                        <div className="bg-slate-900 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-800">
+                          <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">BPM</span>
+                          <span className="text-xl font-black tabular-nums">{currentCanto.bpm}</span>
+                        </div>
+                      )}
+                      {currentCanto.compasso && (
+                        <div className="bg-slate-600 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-500">
+                          <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">COMPASSO</span>
+                          <span className="text-xl font-black tracking-tight">{currentCanto.compasso}</span>
+                        </div>
+                      )}
+                      <div className="bg-blue-600 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-blue-500">
+                        <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">ORIGINAL</span>
+                        <span className="text-xl font-black">{currentCanto.tom || '-'}</span>
+                      </div>
+                      <button 
+                        onClick={() => setIsReadingModeOpen(false)}
+                        className="bg-slate-100 p-4 rounded-full text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-all shadow-sm active:scale-95 flex items-center justify-center h-[60px] w-[60px] sm:h-auto sm:w-auto"
+                      >
+                        <X className="w-8 h-8" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Cifra Display Area */}
+                  <div 
+                    className="flex-1 whitespace-pre-wrap text-slate-800 pb-64 font-serif leading-relaxed"
+                    style={{ fontSize: `${fontSize}px` }}
+                  >
+                    {/* Add extra padding at the top to start below the sticky header gap */}
+                    <div className="pt-4">
+                      {/* Sub-label for key if transposed */}
+                      {keyOffset !== 0 && (
+                        <div className="mb-6 inline-flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 text-sm font-bold text-blue-700">
+                          <span>Tom atual:</span>
+                          <span className="bg-white px-2 py-0.5 rounded-lg shadow-sm border border-blue-200">{currentKey}</span>
+                        </div>
+                      )}
+                      {formattedLetra}
+                    </div>
+                  </div>
+
+                  {/* Floating Action Center (Top Right) - Adjusted to avoid bottom button overlap */}
+                  <div className="fixed right-6 sm:right-10 top-24 bottom-32 flex flex-col gap-4 z-30 pointer-events-none">
+                    <div className="flex flex-col gap-4 pointer-events-auto h-full overflow-y-auto no-scrollbar py-4 px-1">
+                    {/* Auto-Scroll Controls Column */}
+                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-full p-2 border border-emerald-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                      <button 
+                        onClick={() => setIsAutoScrolling(!isAutoScrolling)}
+                        className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90
+                          ${isAutoScrolling ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                        title={isAutoScrolling ? "Pausar" : "Iniciar"}
+                      >
+                        {isAutoScrolling ? <Pause className="w-7 h-7" strokeWidth={2.5} /> : <Play className="w-7 h-7 ml-1" strokeWidth={2.5} />}
+                      </button>
+                      <div className="mt-2 mb-1 flex flex-col items-center">
+                        <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter opacity-70">VELOC.</span>
+                        <select 
+                          value={scrollSpeed}
+                          onChange={(e) => setScrollSpeed(Number(e.target.value))}
+                          className="bg-transparent text-[11px] font-black text-emerald-900 outline-none text-center appearance-none cursor-pointer hover:text-emerald-600 px-2"
+                        >
+                          {[0.1, 0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3].map(v => (
+                            <option key={v} value={v}>{v}x</option>
+                          ))}
+                        </select>
+                        <ArrowDown className="w-3 h-3 text-emerald-400 -mt-1" />
+                      </div>
+                    </div>
+
+                    {/* Transposition Column */}
+                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-blue-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                      <button 
+                        onClick={() => setKeyOffset(prev => prev + 1)}
+                        className="w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all shadow-md active:scale-90"
+                      >
+                        <ArrowUp className="w-6 h-6" strokeWidth={3} />
+                      </button>
+                      <div className="flex flex-col items-center py-4 px-1">
+                        <span className="text-[8px] font-black text-blue-400 uppercase tracking-tighter mb-1">TOM ATUAL</span>
+                        <span className="text-xl font-black text-blue-900 tabular-nums">
+                          {currentKey}
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setKeyOffset(prev => prev - 1)}
+                        className="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-all active:scale-90 shadow-sm"
+                      >
+                        <ArrowDown className="w-6 h-6" strokeWidth={3} />
+                      </button>
+                      {keyOffset !== 0 && (
+                        <button 
+                          onClick={() => setKeyOffset(0)}
+                          className="mt-3 w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                          title="Resetar Tom"
+                        >
+                          <RefreshCcw className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Share Column */}
+                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-purple-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                      <button 
+                        onClick={() => exportCantoAsPDF(currentCanto, currentKey)}
+                        className="w-14 h-14 flex items-center justify-center rounded-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all active:scale-90 mb-2"
+                        title="Exportar PDF"
+                      >
+                        <FileText className="w-6 h-6" />
+                      </button>
+                      <button 
+                        onClick={() => exportCantoAsJSON(currentCanto)}
+                        className="w-14 h-14 flex items-center justify-center rounded-full bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-all active:scale-90"
+                        title="Exportar JSON"
+                      >
+                        <FileJson className="w-6 h-6" />
+                      </button>
+                    </div>
+
+                    {/* Zoom & Display Column */}
+                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                      <button 
+                        onClick={() => setShowChords(!showChords)}
+                        className={`w-14 h-14 flex items-center justify-center rounded-full transition-all active:scale-90 border shadow-sm mb-2
+                          ${!showChords ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
+                        title={showChords ? "Modo Somente Letra" : "Mostrar Cifras"}
+                      >
+                        <Music className="w-6 h-6" />
+                      </button>
+                      <button 
+                        onClick={() => setIsChordHighlighterActive(!isChordHighlighterActive)}
+                        className={`w-14 h-14 flex items-center justify-center rounded-full transition-all active:scale-90 border shadow-sm mb-2
+                          ${isChordHighlighterActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
+                        title="Destacar Acordes"
+                      >
+                        <ListMusic className="w-6 h-6" />
+                      </button>
+                      <div className="h-px w-8 bg-slate-100 mb-2" />
+                      <button 
+                        onClick={() => setFontSize(prev => Math.min(prev + 4, 60))}
+                        className="w-14 h-14 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
+                      >
+                        <Maximize2 className="w-6 h-6" />
+                      </button>
+                      <div className="h-px w-8 bg-slate-100 my-2" />
+                      <button 
+                        onClick={() => setFontSize(prev => Math.max(prev - 4, 12))}
+                        className="w-14 h-14 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
+                      >
+                        <Minus className="w-6 h-6" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                  {/* Navigation Panel (Folheto Only) - Far Bottom Right */}
+                  {readingAgenda && readingAgenda.cantosIds && (
+                    <div className="fixed bottom-6 sm:bottom-10 right-4 sm:right-10 flex items-center gap-3 sm:gap-4 z-40 max-w-[calc(100vw-2rem)]">
+                      {readingIndex > 0 && (
+                        <button 
+                          onClick={() => {
+                            setReadingIndex(prev => prev - 1);
+                            setKeyOffset(0);
+                            setIsAutoScrolling(false);
+                            if (activeScrollElement) activeScrollElement.scrollTop = 0;
+                          }}
+                          className="w-14 h-14 sm:w-20 sm:h-20 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-90"
+                        >
+                          <ChevronLeft className="w-8 h-8 sm:w-10 sm:h-10" strokeWidth={1.5} />
+                        </button>
+                      )}
+                      
+                      {readingIndex < readingAgenda.cantosIds.length - 1 ? (
+                        <button 
+                          onClick={() => {
+                            setReadingIndex(prev => prev + 1);
+                            setKeyOffset(0);
+                            setIsAutoScrolling(false);
+                            if (activeScrollElement) activeScrollElement.scrollTop = 0;
+                          }}
+                          className="bg-blue-600 shadow-[0_20px_50px_rgba(37,99,235,0.3)] h-14 sm:h-20 rounded-full flex items-center gap-2 sm:gap-4 text-white font-bold hover:bg-blue-700 hover:scale-105 transition-all active:scale-95 pl-6 pr-8 sm:pl-10 sm:pr-12 group"
+                        >
+                          <span className="text-lg sm:text-2xl font-black">Próxima</span>
+                          <ChevronRight className="w-8 h-8 sm:w-10 sm:h-10 group-hover:translate-x-1 transition-transform" strokeWidth={3} />
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => setIsReadingModeOpen(false)}
+                          className="bg-emerald-600 shadow-[0_20px_50px_rgba(5,150,105,0.3)] h-14 sm:h-20 rounded-full flex items-center gap-2 sm:gap-4 text-white font-bold hover:bg-emerald-700 hover:scale-105 transition-all active:scale-95 pl-6 pr-8 sm:pl-10 sm:pr-12"
+                        >
+                          <Church className="w-6 h-6 sm:w-8 sm:h-8" />
+                          <span className="text-lg sm:text-2xl font-black">Concluir</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODALS AND PICKERS */}
+      <AnimatePresence>
+        {isAgendaModalOpen && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[80] backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            >
+              <div className="p-8 pb-4 border-b border-slate-50">
+                <h3 className="text-2xl font-serif font-black text-blue-900">
+                  {editingAgenda ? 'Editar Evento' : 'Novo Compromisso'}
+                </h3>
+              </div>
+
+              <div className="p-8 py-6 overflow-y-auto flex-1 custom-scrollbar">
+                <form id="agendaForm" onSubmit={handleSaveAgenda} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Título do Evento</label>
+                    <input 
+                      name="titulo"
+                      defaultValue={editingAgenda?.titulo}
+                      placeholder="Ex: Missa com Coroinhas" 
+                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Local</label>
+                    <input 
+                      name="local"
+                      defaultValue={editingAgenda?.local}
+                      placeholder="Ex: Matriz" 
+                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data e Hora</label>
+                    <input 
+                      name="data"
+                      type="datetime-local" 
+                      defaultValue={editingAgenda?.data}
+                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Recorrência</label>
+                    <select 
+                      name="recorrencia" 
+                      defaultValue={editingAgenda?.recorrencia || 'unica'}
+                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-white"
+                    >
+                      <option value="unica">Evento Único</option>
+                      <option value="mensal">Repetir Mensalmente</option>
+                      <option value="anual">Repetir Anualmente</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-3 text-blue-700 bg-blue-50 p-4 rounded-2xl cursor-pointer hover:bg-blue-100 transition-colors">
+                    <input type="checkbox" name="syncGoogle" className="w-5 h-5 accent-blue-600" /> 
+                    <span className="text-sm font-bold">Sincronizar Google Agenda</span>
+                  </label>
+
+                  {/* Song Selection for Playlist */}
+                  <div className="space-y-3 pt-4 border-t border-slate-100">
+                    <div className="flex justify-between items-center px-1">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400">Roteiro Musical</h4>
+                      <button 
+                        type="button"
+                        onClick={() => setShowCantoPicker(true)}
+                        className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline uppercase tracking-wider"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Adicionar Música
+                      </button>
+                    </div>
+                    
+                    {selectedCantosForAgenda.length === 0 ? (
+                      <div className="p-8 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Nenhuma música no roteiro</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedCantosForAgenda.map((id, index) => {
+                          const canto = cantos.find(c => c.id === id);
+                          if (!canto) return null;
+                          return (
+                            <div key={`${id}-${index}`} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-300 w-5 text-center">{index + 1}</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[9px] font-black text-blue-500 uppercase leading-none mb-1">{canto.tipo}</span>
+                                  <span className="text-sm font-bold text-slate-800 leading-tight">{canto.nome}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <div className="flex flex-col">
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      const newIds = [...selectedCantosForAgenda];
+                                      if (index > 0) {
+                                        [newIds[index], newIds[index-1]] = [newIds[index-1], newIds[index]];
+                                        setSelectedCantosForAgenda(newIds);
+                                      }
+                                    }}
+                                    className="p-1 text-slate-300 hover:text-blue-500 disabled:opacity-30"
+                                    disabled={index === 0}
+                                  >
+                                    <ArrowUp className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      const newIds = [...selectedCantosForAgenda];
+                                      if (index < newIds.length - 1) {
+                                        [newIds[index], newIds[index+1]] = [newIds[index+1], newIds[index]];
+                                        setSelectedCantosForAgenda(newIds);
+                                      }
+                                    }}
+                                    className="p-1 text-slate-300 hover:text-blue-500 disabled:opacity-30"
+                                    disabled={index === selectedCantosForAgenda.length - 1}
+                                  >
+                                    <ArrowDown className="w-4 h-4" />
+                                  </button>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={() => setSelectedCantosForAgenda(prev => prev.filter((_, i) => i !== index))}
+                                  className="p-2 text-slate-300 hover:text-red-500 ml-1 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              <div className="p-8 border-t border-slate-50 flex justify-end gap-3 bg-white">
+                <button 
+                  type="button"
+                  onClick={() => setIsAgendaModalOpen(false)} 
+                  className="px-6 py-3 text-slate-500 font-bold hover:text-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  form="agendaForm"
+                  className="px-10 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all active:scale-95"
+                >
+                  Salvar Evento
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* CANTO PICKER MODAL (FOR AGENDA) */}
+      <AnimatePresence>
+        {showCantoPicker && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[80] backdrop-blur-xl">
+            <motion.div 
+              initial={{ scale: 1.1, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 1.1, opacity: 0 }}
+              className="bg-white rounded-[2rem] p-8 w-full max-w-xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-serif font-black text-blue-900">Selecionar Música</h3>
+                <button 
+                  onClick={() => setShowCantoPicker(false)}
+                  className="bg-slate-100 p-2 rounded-full text-slate-500 hover:bg-slate-200"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar repertório..." 
+                  value={searchCanto}
+                  onChange={(e) => setSearchCanto(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                {filteredCantos.length === 0 ? (
+                  <div className="text-center py-10 opacity-40">Nenhuma música encontrada</div>
+                ) : (
+                  filteredCantos.map(canto => (
+                    <button 
+                      key={canto.id}
+                      onClick={() => {
+                        setSelectedCantosForAgenda(prev => [...prev, canto.id]);
+                        setShowCantoPicker(false);
+                      }}
+                      className="w-full text-left p-4 rounded-2xl bg-white border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all flex justify-between items-center"
+                    >
+                      <div>
+                        <span className="text-[10px] font-black text-blue-500 uppercase block mb-0.5">{canto.tipo}</span>
+                        <span className="font-bold text-slate-800">{canto.nome}</span>
+                        <div className="flex gap-2 items-center mt-1">
+                          <span className="text-[10px] opacity-40 uppercase">Ano {canto.ano}</span>
+                          <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                          <span className="text-[10px] opacity-40 uppercase">{canto.season}</span>
+                        </div>
+                      </div>
+                      <Plus className="w-5 h-5 text-blue-400" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* CANTO MODAL */}
+      <AnimatePresence>
+        {isCantoModalOpen && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60] backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
+            >
+              <h3 className="text-2xl font-serif font-bold mb-6 text-blue-900">
+                {editingCanto ? 'Editar Música' : 'Adicionar Música'}
+              </h3>
+              <form onSubmit={handleSaveCanto} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Ano Litúrgico</label>
+                    <select name="ano" defaultValue={editingCanto?.ano || 'Geral'} className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none">
+                      <option value="A">Ano A</option>
+                      <option value="B">Ano B</option>
+                      <option value="C">Ano C</option>
+                      <option value="Geral">Geral</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tempo Litúrgico</label>
+                    <select name="season" defaultValue={editingCanto?.season || selectedSeason || 'Geral'} className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none">
+                      {temposLiturgicos.map(s => (
+                        <option key={s.id} value={s.id}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Momento da Missa</label>
+                  <select name="tipo" defaultValue={editingCanto?.tipo || categorias[0]} className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold">
+                    {categorias.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Título da Música</label>
+                  <input 
+                    name="nome"
+                    defaultValue={editingCanto?.nome}
+                    placeholder="Título da canção" 
+                    className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500" 
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tom Original</label>
+                    <input 
+                      name="tom" 
+                      defaultValue={editingCanto?.tom || 'C'}
+                      placeholder="C"
+                      className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold uppercase"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">BPM</label>
+                    <input 
+                      name="bpm" 
+                      type="number"
+                      defaultValue={editingCanto?.bpm}
+                      placeholder="120"
+                      className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Compasso</label>
+                    <input 
+                      name="compasso" 
+                      defaultValue={editingCanto?.compasso}
+                      placeholder="4/4"
+                      className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Letra ou Cifra</label>
+                  <textarea 
+                    name="letra"
+                    defaultValue={editingCanto?.letra}
+                    placeholder="Escreva a letra ou cole aqui..." 
+                    className="w-full border border-slate-200 p-4 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-blue-500 font-serif"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 mt-8">
+                  <button 
+                    type="button"
+                    onClick={() => setIsCantoModalOpen(false)} 
+                    className="px-6 py-3 text-slate-400 font-bold"
+                  >
+                    Voltar
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all"
+                  >
+                    Salvar
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className={`fixed bottom-24 left-4 right-4 sm:left-auto sm:right-8 sm:w-80 z-[100] p-4 rounded-2xl shadow-2xl flex items-center gap-3 border ${
+              notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+              notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+              'bg-blue-50 border-blue-200 text-blue-800'
+            }`}
+          >
+            <div className={`p-2 rounded-full ${
+              notification.type === 'success' ? 'bg-emerald-100' :
+              notification.type === 'error' ? 'bg-red-100' :
+              'bg-blue-100'
+            }`}>
+              {notification.type === 'success' && <Check className="w-5 h-5 text-emerald-600" />}
+              {notification.type === 'error' && <X className="w-5 h-5 text-red-600" />}
+              {notification.type === 'info' && <Info className="w-5 h-5 text-blue-600" />}
+            </div>
+            <div className="flex-1 text-sm font-bold leading-tight">
+              {notification.message}
+            </div>
+            <button onClick={() => setNotification(null)} className="p-1 hover:bg-black/5 rounded-lg transition-colors">
+              <X className="w-4 h-4 opacity-50" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hidden File Input for Import */}
+      <input 
+        type="file" 
+        ref={fileInputRef}
+        onChange={handleImportData} 
+        className="hidden" 
+        accept="application/json,.json"
+      />
+
+    </div>
+  );
+}
+
