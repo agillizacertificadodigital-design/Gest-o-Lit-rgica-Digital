@@ -651,16 +651,16 @@ export default function App() {
       const isSong = json.nome && json.letra !== undefined && !json.cantos;
       if (isSong) {
         if (confirm(`Deseja importar a música "${json.nome}"?`)) {
+          const { id, ...songData } = json;
           const song = {
-            id: String(json.id) || String(Date.now()),
-            ano: ['A', 'B', 'C', 'Geral'].includes(json.ano) ? json.ano : 'Geral',
-            tipo: json.tipo || 'Outros',
-            nome: json.nome,
-            letra: json.letra,
-            season: json.season || 'Comum',
-            tom: json.tom || '',
-            bpm: json.bpm ? Number(json.bpm) : null,
-            compasso: json.compasso || '',
+            ano: ['A', 'B', 'C', 'Geral'].includes(songData.ano) ? songData.ano : 'Geral',
+            tipo: songData.tipo || 'Outros',
+            nome: songData.nome,
+            letra: songData.letra,
+            season: songData.season || 'Comum',
+            tom: songData.tom || '',
+            bpm: songData.bpm ? Number(songData.bpm) : null,
+            compasso: songData.compasso || '',
             ownerId: user.uid,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
@@ -687,9 +687,9 @@ export default function App() {
           
           // Import songs sequentially to avoid rate limits/conflicts
           for (const c of incomingCantos) {
+            const { id: _, ...cantoData } = c;
             await addDoc(collection(db, 'cantos'), {
-              ...c,
-              id: undefined, // Let Cloud Firestore generate ID
+              ...cantoData,
               ownerId: user.uid,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp()
@@ -699,9 +699,9 @@ export default function App() {
           if (!isArrayOfSongs) {
             if (json.agenda) {
               for (const a of json.agenda) {
+                const { id: __, ...agendaData } = a;
                 await addDoc(collection(db, 'agenda'), {
-                  ...a,
-                  id: undefined,
+                  ...agendaData,
                   ownerId: user.uid,
                   createdAt: serverTimestamp(),
                   updatedAt: serverTimestamp()
