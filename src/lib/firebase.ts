@@ -3,9 +3,19 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+const getFirebaseConfig = () => {
+  if (!firebaseConfig || !firebaseConfig.apiKey) {
+    console.error('Firebase configuration is missing or invalid. Please check your firebase-applet-config.json file.');
+    return null;
+  }
+  return firebaseConfig;
+};
+
+const config = getFirebaseConfig();
+
+export const app = config ? initializeApp(config) : null;
+export const db = (app && config) ? getFirestore(app, (config as any).firestoreDatabaseId) : null as any;
+export const auth = app ? getAuth(app) : null as any;
 
 export enum OperationType {
   CREATE = 'create',

@@ -75,6 +75,11 @@ export default function App() {
 
   useEffect(() => {
     document.title = "Gestão Litúrgica Digital";
+    if (!auth) {
+      console.error("Firebase Auth not initialized. Check your configuration.");
+      setAuthLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthLoading(false);
@@ -106,7 +111,7 @@ export default function App() {
 
   // Firestore Subscriptions
   useEffect(() => {
-    if (!user) {
+    if (!user || !db) {
       setCantos([]);
       setAgenda([]);
       setCategorias(INITIAL_CATEGORIES);
