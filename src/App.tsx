@@ -43,7 +43,8 @@ import {
   Info,
   LogOut,
   User as UserIcon,
-  Loader2
+  Loader2,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
@@ -237,6 +238,13 @@ export default function App() {
   const [showCantoPicker, setShowCantoPicker] = useState(false);
 
   // Transposition Logic
+  const activeReadingCanto = useMemo(() => {
+    const currentCantoId = readingAgenda?.cantosIds 
+      ? readingAgenda.cantosIds[readingIndex]
+      : readingCanto?.id;
+    return cantos.find(c => String(c.id) === String(currentCantoId));
+  }, [readingCanto, readingAgenda, readingIndex, cantos]);
+
   const transposeText = (text: string, offset: number) => {
     if (offset === 0) return text;
 
@@ -278,13 +286,9 @@ export default function App() {
   };
 
   const transposedLetra = useMemo(() => {
-    const canto = readingAgenda?.cantosIds 
-      ? cantos.find(c => String(c.id) === String(readingAgenda.cantosIds![readingIndex]))
-      : readingCanto;
-    
-    if (!canto) return '';
-    return transposeText(canto.letra, keyOffset);
-  }, [readingCanto, keyOffset, readingAgenda, readingIndex, cantos]);
+    if (!activeReadingCanto) return '';
+    return transposeText(activeReadingCanto.letra, keyOffset);
+  }, [activeReadingCanto, keyOffset]);
 
   const formattedLetra = useMemo(() => {
     if (!transposedLetra) return null;
@@ -330,11 +334,10 @@ export default function App() {
 
   // Calculated State
   const currentKey = useMemo(() => {
-    const canto = readingAgenda?.cantosIds 
-      ? cantos.find(c => String(c.id) === String(readingAgenda.cantosIds![readingIndex]))
-      : readingCanto;
+    if (!activeReadingCanto) return '';
+    const canto = activeReadingCanto;
 
-    if (!canto?.tom) return String(keyOffset > 0 ? `+${keyOffset}` : keyOffset);
+    if (!canto.tom) return String(keyOffset > 0 ? `+${keyOffset}` : keyOffset);
     if (keyOffset === 0) return String(canto.tom).toUpperCase();
 
     // Reuse the transposition logic for the display key
@@ -1508,10 +1511,7 @@ export default function App() {
             className="fixed inset-0 bg-white z-[100] overflow-y-auto overflow-x-hidden selection:bg-blue-100"
           >
             {(() => {
-              const currentCantoId = readingAgenda?.cantosIds 
-                ? readingAgenda.cantosIds[readingIndex]
-                : readingCanto?.id;
-              const currentCanto = cantos.find(c => String(c.id) === String(currentCantoId));
+              const currentCanto = activeReadingCanto;
                 
               if (!currentCanto) {
                 return (
@@ -1642,18 +1642,56 @@ export default function App() {
                       >
                         <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
                       </button>
-                      <div className="flex flex-col items-center py-1.5 sm:py-3 px-0.5">
+                      
+                      <div className="flex flex-col items-center py-1 sm:py-2 px-0.5">
                         <span className="text-[6px] sm:text-[7px] font-black text-blue-400 uppercase tracking-tighter mb-0.5">TOM</span>
                         <span className="text-[11px] sm:text-sm font-black text-blue-900 tabular-nums">
                           {currentKey}
                         </span>
                       </div>
+
                       <button 
                         onClick={() => setKeyOffset(prev => prev - 1)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-all active:scale-90 shadow-sm"
+                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-all active:scale-90 shadow-sm mb-1.5"
                       >
                         <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
                       </button>
+
+                      {keyOffset !== 0 && (
+                        <div className="flex flex-col gap-1.5 border-t border-blue-50 pt-1.5 w-full items-center">
+                          <button 
+                            onClick={() => setKeyOffset(0)}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                            title="Resetar Tom Original"
+                          >
+                            <RefreshCcw className="w-3.5 h-3.5" />
+                          </button>
+                          
+                          <button 
+                            onClick={async () => {
+                              if (!currentCanto) return;
+                              if (confirm(`Deseja salvar permanentemente a música "${currentCanto.nome}" no tom ${currentKey}?`)) {
+                                try {
+                                  await updateDoc(doc(db, 'cantos', String(currentCanto.id)), {
+                                    letra: transposedLetra,
+                                    tom: currentKey,
+                                    updatedAt: serverTimestamp()
+                                  });
+                                  setKeyOffset(0);
+                                  showNotification('Tonalidade salva com sucesso!', 'success');
+                                } catch (err) {
+                                  console.error('Erro ao salvar transposição:', err);
+                                  showNotification('Erro ao salvar nova tonalidade.', 'error');
+                                }
+                              }
+                            }}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-all shadow-sm"
+                            title="Salvar Tonalidade na Música"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Share Column */}
