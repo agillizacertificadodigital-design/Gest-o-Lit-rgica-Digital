@@ -22,6 +22,7 @@ import {
   LayoutList,
   ListMusic,
   Maximize2,
+  Minimize2,
   Minus,
   Play,
   Pause,
@@ -191,9 +192,19 @@ export default function App() {
   const [editingCanto, setEditingCanto] = useState<Canto | null>(null);
   
   const [isReadingModeOpen, setIsReadingModeOpen] = useState(false);
+  const [isLyricsFullScreen, setIsLyricsFullScreen] = useState(false);
+  const [lyricsValue, setLyricsValue] = useState("");
   const [readingCanto, setReadingCanto] = useState<Canto | null>(null);
   const [readingAgenda, setReadingAgenda] = useState<AgendaItem | null>(null);
   const [readingIndex, setReadingIndex] = useState(0);
+
+  useEffect(() => {
+    if (editingCanto) {
+      setLyricsValue(editingCanto.letra || "");
+    } else {
+      setLyricsValue("");
+    }
+  }, [editingCanto, isCantoModalOpen]);
 
   const [fontSize, setFontSize] = useState(20);
   const [keyOffset, setKeyOffset] = useState(0);
@@ -2162,10 +2173,21 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Letra ou Cifra</label>
+                  <div className="flex justify-between items-center pr-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Letra ou Cifra</label>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsLyricsFullScreen(true)}
+                      className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                    >
+                      <Maximize2 className="w-3 h-3" />
+                      Tela Cheia
+                    </button>
+                  </div>
                   <textarea 
                     name="letra"
-                    defaultValue={editingCanto?.letra}
+                    value={lyricsValue}
+                    onChange={(e) => setLyricsValue(e.target.value)}
                     placeholder="Escreva a letra ou cole aqui..." 
                     className="w-full border border-slate-200 dark:border-dark-border dark:bg-dark-bg dark:text-white p-4 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-blue-500 font-serif"
                   />
@@ -2189,6 +2211,43 @@ export default function App() {
               </form>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* FULL SCREEN LYRICS EDITOR */}
+      <AnimatePresence>
+        {isLyricsFullScreen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-white dark:bg-dark-bg z-[400] flex flex-col pt-safe px-4 sm:px-0"
+          >
+            <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col h-full bg-white dark:bg-dark-bg">
+              <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dark-border flex justify-between items-center">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-blue-500 uppercase leading-none mb-1">Editor em Tela Cheia</span>
+                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-slate-800 dark:text-white">Letra ou Cifra</h3>
+                </div>
+                <button 
+                  onClick={() => setIsLyricsFullScreen(false)}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-700 hover:-translate-y-1 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+                >
+                  <Minimize2 className="w-5 h-5" />
+                  CONCLUÍDO
+                </button>
+              </div>
+              <div className="flex-1 p-4 sm:p-8 bg-slate-50/30 dark:bg-dark-surface/10 rounded-b-[2.5rem]">
+                <textarea 
+                  value={lyricsValue}
+                  onChange={(e) => setLyricsValue(e.target.value)}
+                  placeholder="Escreva a letra ou cole aqui..." 
+                  className="w-full h-full border-none outline-none bg-transparent font-serif text-lg sm:text-2xl text-slate-800 dark:text-white resize-none leading-relaxed"
+                  autoFocus
+                />
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
       {/* Toast Notification */}
