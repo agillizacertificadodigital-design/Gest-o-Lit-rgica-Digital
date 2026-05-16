@@ -733,7 +733,7 @@ export default function App() {
     }
   };
 
-  const exportCantoAsPDF = (canto: Canto, currentKey?: string) => {
+  const exportCantoAsPDF = (canto: Canto, currentKey?: string, transposedLyrics?: string) => {
     try {
       const doc = new jsPDF();
       const margin = 20;
@@ -768,7 +768,8 @@ export default function App() {
       doc.setTextColor(0);
       doc.setFont('courier', 'normal'); 
 
-      const lyricsToExport = showChords ? canto.letra : canto.letra.replace(/\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/g, '');
+      const baseLyrics = (transposedLyrics && transposedLyrics.trim() !== '') ? transposedLyrics : canto.letra;
+      const lyricsToExport = showChords ? baseLyrics : baseLyrics.replace(/\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/g, '');
       
       const lines = doc.splitTextToSize(lyricsToExport, contentWidth);
       
@@ -1664,7 +1665,7 @@ export default function App() {
                     {/* Share Column */}
                     <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-purple-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
                       <button 
-                        onClick={() => exportCantoAsPDF(currentCanto, currentKey)}
+                        onClick={() => exportCantoAsPDF(currentCanto, currentKey, transposedLetra || undefined)}
                         className="w-14 h-14 flex items-center justify-center rounded-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all active:scale-90 mb-2"
                         title="Exportar PDF"
                       >
