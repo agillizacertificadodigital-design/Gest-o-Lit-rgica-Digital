@@ -33,6 +33,7 @@ import {
   Leaf,
   Cross,
   Sun,
+  Moon,
   Music2,
   Download,
   Upload,
@@ -148,6 +149,22 @@ export default function App() {
 
   // Selected Season for the Tempos view
   const [selectedSeason, setSelectedSeason] = useState<LiturgicalSeason | null>(null);
+
+  // Theme State
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   // Persistence
   useEffect(() => {
@@ -835,7 +852,7 @@ export default function App() {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen text-slate-900 font-sans pb-24">
+    <div className="bg-slate-50 dark:bg-dark-bg min-h-screen text-slate-900 dark:text-dark-text font-sans pb-24 transition-colors duration-300">
       {/* Navbar */}
       <nav className="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center px-4">
@@ -865,7 +882,7 @@ export default function App() {
       </nav>
 
       {/* Tabs */}
-      <div className="bg-white shadow-md sticky top-[60px] z-40">
+      <div className="bg-white dark:bg-dark-surface shadow-md sticky top-[60px] z-40 transition-colors">
         <div className="container mx-auto flex justify-around">
           {[
             { id: 'tempos', icon: <Calendar className="w-5 h-5" />, label: 'TEMPOS' },
@@ -877,7 +894,9 @@ export default function App() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex flex-col items-center gap-1 py-4 px-2 w-full text-[10px] font-bold tracking-wider transition-all
-                ${activeTab === tab.id ? 'text-blue-700 border-b-4 border-blue-700 bg-blue-50/50' : 'text-slate-500 border-b-4 border-transparent hover:text-blue-600'}`}
+                ${activeTab === tab.id 
+                  ? 'text-blue-700 dark:text-blue-400 border-b-4 border-blue-700 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/20' 
+                  : 'text-slate-500 dark:text-slate-400 border-b-4 border-transparent hover:text-blue-600 dark:hover:text-blue-400'}`}
             >
               {tab.icon}
               {tab.label}
@@ -898,8 +917,8 @@ export default function App() {
               className="space-y-6"
             >
               <div className="flex flex-col gap-2">
-                <h2 className="text-3xl font-serif font-bold text-blue-900">Ciclos Litúrgicos</h2>
-                <p className="text-slate-500">Explore o calendário litúrgico e encontre cantos específicos para cada tempo.</p>
+                <h2 className="text-3xl font-serif font-bold text-blue-900 dark:text-blue-400">Ciclos Litúrgicos</h2>
+                <p className="text-slate-500 dark:text-slate-400">Explore o calendário litúrgico e encontre cantos específicos para cada tempo.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -909,17 +928,17 @@ export default function App() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedSeason(selectedSeason === season.id ? null : season.id)}
-                    className={`relative overflow-hidden bg-white p-6 rounded-2xl border-l-[6px] shadow-md text-left transition-shadow hover:shadow-lg
-                      ${season.borderColor} ${selectedSeason === season.id ? 'ring-2 ring-blue-500' : ''}`}
+                    className={`relative overflow-hidden bg-white dark:bg-dark-surface p-6 rounded-2xl border-l-[6px] shadow-md text-left transition-all hover:shadow-lg
+                      ${season.borderColor} ${selectedSeason === season.id ? 'ring-2 ring-blue-500' : 'border-transparent sm:border-l-[6px]'}`}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div className={`p-2 rounded-xl text-white ${season.color}`}>
                         {getSeasonIcon(season.id)}
                       </div>
-                      <ChevronRight className={`w-5 h-5 text-slate-300 transition-transform ${selectedSeason === season.id ? 'rotate-90' : ''}`} />
+                      <ChevronRight className={`w-5 h-5 text-slate-300 dark:text-slate-600 transition-transform ${selectedSeason === season.id ? 'rotate-90' : ''}`} />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-800">{season.label}</h3>
-                    <p className="text-sm text-slate-500 mt-1">{season.description}</p>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">{season.label}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{season.description}</p>
                   </motion.button>
                 ))}
               </div>
@@ -931,30 +950,30 @@ export default function App() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden bg-white rounded-2xl border border-slate-200 shadow-sm"
+                    className="overflow-hidden bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm transition-colors"
                   >
                     <div className="p-6">
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-blue-900 dark:text-blue-400 flex items-center gap-2">
                           <Music className="w-5 h-5" />
                           Cantos de {selectedSeason}
                         </h3>
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">
+                        <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full font-bold">
                           {getCantosBySeason(selectedSeason).length} músicas
                         </span>
                       </div>
                       
                       {getCantosBySeason(selectedSeason).length === 0 ? (
-                        <div className="text-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                          <Music2 className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-                          <p className="text-slate-500">Nenhum canto cadastrado para este tempo.</p>
+                        <div className="text-center py-12 bg-slate-50 dark:bg-dark-bg rounded-xl border-2 border-dashed border-slate-200 dark:border-dark-border">
+                          <Music2 className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                          <p className="text-slate-500 dark:text-slate-400">Nenhum canto cadastrado para este tempo.</p>
                           <button 
                             onClick={() => {
                               const s = temposLiturgicos.find(x => x.id === selectedSeason);
                               setEditingCanto(null);
                               setIsCantoModalOpen(true);
                             }}
-                            className="mt-4 text-blue-600 font-bold hover:underline"
+                            className="mt-4 text-blue-600 dark:text-blue-400 font-bold hover:underline"
                           >
                             + Adicionar primeiro canto
                           </button>
@@ -962,25 +981,25 @@ export default function App() {
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {getCantosBySeason(selectedSeason).map(canto => (
-                            <div 
-                              key={canto.id} 
-                              className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 transition-colors group"
-                            >
-                              <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{canto.tipo}</span>
-                                <span className="font-bold text-slate-800">{canto.nome}</span>
-                              </div>
-                              <button 
-                                onClick={() => {
-                                  setReadingCanto(canto);
-                                  setKeyOffset(0); // Reset transpose
-                                  setIsReadingModeOpen(true);
-                                }}
-                                className="p-2 text-slate-400 group-hover:text-blue-600 transition-colors"
+                              <div 
+                                key={canto.id} 
+                                className="flex items-center justify-between p-4 bg-slate-50 dark:bg-dark-bg rounded-xl border border-slate-100 dark:border-dark-border hover:border-blue-200 dark:hover:border-blue-800 transition-colors group"
                               >
-                                <BookOpen className="w-5 h-5" />
-                              </button>
-                            </div>
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">{canto.tipo}</span>
+                                  <span className="font-bold text-slate-800 dark:text-white">{canto.nome}</span>
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    setReadingCanto(canto);
+                                    setKeyOffset(0); // Reset transpose
+                                    setIsReadingModeOpen(true);
+                                  }}
+                                  className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                >
+                                  <BookOpen className="w-5 h-5" />
+                                </button>
+                              </div>
                           ))}
                         </div>
                       )}
@@ -1091,7 +1110,7 @@ export default function App() {
                     const isValidDate = !isNaN(eventDate.getTime());
 
                     return (
-                      <div key={item.id} className="bg-white p-5 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                      <div key={item.id} className="bg-white dark:bg-dark-surface p-5 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 dark:border-dark-border hover:shadow-md transition-shadow">
                         <div 
                           className="cursor-pointer flex-1"
                           onClick={() => {
@@ -1101,20 +1120,20 @@ export default function App() {
                           }}
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-xl text-blue-900 leading-tight">{item.titulo}</h4>
+                            <h4 className="font-bold text-xl text-blue-900 dark:text-blue-400 leading-tight">{item.titulo}</h4>
                             {originalItem.recorrencia && originalItem.recorrencia !== 'unica' && (
-                              <span className="bg-blue-100 text-blue-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
                                 <RefreshCcw className="w-2.5 h-2.5" />
                                 {originalItem.recorrencia === 'mensal' ? 'Mensal' : 'Anual'}
                               </span>
                             )}
                           </div>
                           <div className="flex flex-wrap gap-4 mt-2">
-                            <div className="flex items-center text-xs text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg">
+                            <div className="flex items-center text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg">
                               <MapPin className="w-3 h-3 mr-1" />
                               {item.local || 'Local não definido'}
                             </div>
-                            <div className="flex items-center text-xs text-slate-500 font-mono">
+                            <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 font-mono">
                               <Clock className="w-3 h-3 mr-1" />
                               {isValidDate ? eventDate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data inválida'}
                             </div>
@@ -1184,13 +1203,13 @@ export default function App() {
             >
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-3xl font-serif font-bold text-blue-900">Músicas Litúrgicas</h2>
-                  <p className="text-slate-500">Mantenha seu repertório organizado.</p>
+                  <h2 className="text-3xl font-serif font-bold text-blue-900 dark:text-blue-400">Músicas Litúrgicas</h2>
+                  <p className="text-slate-500 dark:text-slate-400">Mantenha seu repertório organizado.</p>
                 </div>
                 <div className="flex gap-2">
                   <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-white text-blue-600 p-4 rounded-full shadow-lg hover:bg-blue-50 transition-colors border border-blue-100"
+                    className="bg-white dark:bg-dark-surface text-blue-600 p-4 rounded-full shadow-lg hover:bg-blue-50 dark:hover:bg-dark-surface-hover transition-colors border border-blue-100 dark:border-dark-border"
                     title="Importar Música"
                   >
                     <Upload className="w-6 h-6" />
@@ -1208,7 +1227,7 @@ export default function App() {
               </div>
 
               {/* Filters */}
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+              <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border transition-colors">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -1217,13 +1236,13 @@ export default function App() {
                       placeholder="Buscar por título ou letra..." 
                       value={searchCanto}
                       onChange={(e) => setSearchCanto(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all dark:text-white dark:placeholder:text-slate-600"
                     />
                   </div>
                   <select 
                     value={filterMoment}
                     onChange={(e) => setFilterMoment(e.target.value)}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer"
+                    className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer dark:text-white"
                   >
                     <option value="todos">Todos os Momentos</option>
                     {categorias.map(cat => (
@@ -1233,7 +1252,7 @@ export default function App() {
                   <select 
                     value={filterYear}
                     onChange={(e) => setFilterYear(e.target.value)}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer"
+                    className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer dark:text-white"
                   >
                     <option value="todos">Todos os Anos</option>
                     <option value="A">Ano A</option>
@@ -1246,40 +1265,40 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {filteredCantos.length === 0 ? (
-                  <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-slate-200">
-                    <Music className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                    <p className="text-slate-400 font-medium font-serif text-lg">Nenhuma música encontrada</p>
+                  <div className="col-span-full text-center py-20 bg-white dark:bg-dark-surface rounded-3xl border border-slate-200 dark:border-dark-border">
+                    <Music className="w-16 h-16 text-slate-200 dark:text-slate-700 mx-auto mb-4" />
+                    <p className="text-slate-400 dark:text-slate-600 font-medium font-serif text-lg">Nenhuma música encontrada</p>
                   </div>
                 ) : (
                   filteredCantos.map(canto => (
-                    <div key={canto.id} className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between hover:shadow-xl hover:border-blue-100 transition-all">
+                    <div key={canto.id} className="group bg-white dark:bg-dark-surface p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col justify-between hover:shadow-xl hover:border-blue-100 dark:hover:border-blue-900 transition-all">
                       <div>
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex flex-wrap gap-2">
-                             <span className="bg-blue-900 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                             <span className="bg-blue-900 dark:bg-blue-800 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
                                {canto.ano} | {canto.tipo}
                              </span>
-                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter text-white
+                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter text-white shadow-sm
                                ${temposLiturgicos.find(s => s.id === canto.season)?.color || 'bg-slate-400'}`}>
                                {canto.season}
                              </span>
                              {canto.tom && (
-                               <span className="bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                               <span className="bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
                                  TOM: {String(canto.tom).toUpperCase()}
                                </span>
                              )}
                              {canto.bpm && (
-                               <span className="bg-slate-700 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                               <span className="bg-slate-700 dark:bg-slate-800 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
                                  {canto.bpm} BPM
                                </span>
                              )}
                              {canto.compasso && (
-                               <span className="bg-slate-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                               <span className="bg-slate-500 dark:bg-slate-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
                                  {canto.compasso}
                                </span>
                              )}
                           </div>
-                          <div className="flex gap-2 text-slate-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <div className="flex gap-2 text-slate-300 dark:text-slate-700 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button 
                               type="button"
                               onClick={(e) => {
@@ -1287,7 +1306,7 @@ export default function App() {
                                 setEditingCanto(canto);
                                 setIsCantoModalOpen(true);
                               }}
-                              className="p-2 hover:text-blue-600"
+                              className="p-2 hover:text-blue-600 dark:hover:text-blue-400"
                             >
                               <Edit className="w-5 h-5" />
                             </button>
@@ -1297,15 +1316,15 @@ export default function App() {
                                 e.stopPropagation();
                                 handleDeleteCanto(canto.id);
                               }}
-                              className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                              className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                               title="Excluir Música"
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>
                           </div>
                         </div>
-                        <h4 className="font-bold text-slate-800 text-2xl leading-tight mb-3 font-serif">{canto.nome}</h4>
-                        <p className="text-sm text-slate-400 line-clamp-3 mb-6 italic leading-relaxed">
+                        <h4 className="font-bold text-slate-800 dark:text-white text-2xl leading-tight mb-3 font-serif">{canto.nome}</h4>
+                        <p className="text-sm text-slate-400 dark:text-slate-500 line-clamp-3 mb-6 italic leading-relaxed">
                           {canto.letra}
                         </p>
                       </div>
@@ -1316,7 +1335,7 @@ export default function App() {
                           setKeyOffset(0); // Reset transpose when opening new song
                           setIsReadingModeOpen(true);
                         }}
-                        className="w-full bg-blue-50 text-blue-900 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-900 hover:text-white transition-all transform active:scale-95"
+                        className="w-full bg-blue-50 dark:bg-dark-bg text-blue-900 dark:text-blue-300 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-900 dark:hover:bg-blue-800 hover:text-white transition-all transform active:scale-95"
                       >
                         <BookOpen className="w-5 h-5" /> 
                         MODO LEITURA
@@ -1338,12 +1357,33 @@ export default function App() {
               className="space-y-6"
             >
               <div className="flex flex-col gap-2">
-                <h2 className="text-3xl font-serif font-bold text-blue-900">Configurações</h2>
-                <p className="text-slate-500">Personalize os momentos e nomenclaturas do sistema.</p>
+                <h2 className="text-3xl font-serif font-bold text-blue-900 dark:text-blue-400">Configurações</h2>
+                <p className="text-slate-500 dark:text-slate-400">Personalize a aparência e nomenclaturas do sistema.</p>
               </div>
 
-              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-                <h3 className="text-xl font-bold text-slate-800 mb-4">Outras Eventualidades</h3>
+              {/* THEME TOGGLE */}
+              <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-dark-bg flex items-center justify-center text-slate-600 dark:text-slate-300">
+                    {isDarkMode ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-white">Aparência do Sistema</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {isDarkMode ? 'Modo Escuro Ativado' : 'Modo Claro Ativado'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 ${isDarkMode ? 'bg-blue-600' : 'bg-slate-200'}`}
+                >
+                  <div className={`w-6 h-6 bg-white rounded-full transition-transform duration-300 shadow-md ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-dark-surface p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Outras Eventualidades</h3>
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!user) return;
@@ -1368,20 +1408,20 @@ export default function App() {
                       handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
                     }
                   }
-                }} className="space-y-4 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                }} className="space-y-4 mb-8 bg-slate-50 dark:bg-dark-bg p-6 rounded-2xl border border-slate-100 dark:border-dark-border">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <input 
                       name="nome"
                       type="text" 
                       placeholder="Nome da eventualidade (ex: Hino de Padroeiros)" 
-                      className="flex-1 p-4 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="flex-1 p-4 border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-bg dark:text-white"
                       required
                     />
                     <input 
                       name="descricao"
                       type="text" 
                       placeholder="Breve descrição" 
-                      className="flex-1 p-4 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="flex-1 p-4 border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-bg dark:text-white"
                     />
                   </div>
                   <button type="submit" className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
@@ -1392,14 +1432,14 @@ export default function App() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {temposLiturgicos.map(s => (
-                    <div key={s.id} className="flex items-center justify-between gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <div key={s.id} className="flex items-center justify-between gap-2 bg-slate-50 dark:bg-dark-bg p-4 rounded-2xl border border-slate-200 dark:border-dark-border">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 ${s.color} text-white rounded-xl flex items-center justify-center shadow-lg`}>
                           {getSeasonIcon(s.id)}
                         </div>
                         <div>
-                          <span className="font-bold text-slate-800 block">{s.label}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">{s.description}</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-300 block">{s.label}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{s.description}</span>
                         </div>
                       </div>
                       {/* Original seasons cannot be deleted, so hide the button */}
@@ -1417,7 +1457,7 @@ export default function App() {
                               handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
                             }
                           }}
-                          className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-xl transition-all"
+                          className="text-red-400 dark:text-red-900/60 hover:text-red-600 dark:hover:text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                           title="Excluir Eventualidade"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -1428,14 +1468,14 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-                <h3 className="text-xl font-bold text-slate-800 mb-4">Momentos da Missa</h3>
+              <div className="bg-white dark:bg-dark-surface p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Momentos da Missa</h3>
                 <form onSubmit={handleAddCategory} className="flex gap-2 mb-8">
                   <input 
                     name="nova"
                     type="text" 
                     placeholder="Ex: Pós-Comunhão" 
-                    className="flex-1 p-4 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 p-4 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border dark:text-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button type="submit" className="bg-emerald-600 text-white px-8 rounded-2xl font-bold hover:bg-emerald-700 transition-colors">
                     Criar
@@ -1444,8 +1484,8 @@ export default function App() {
                 
                 <div className="flex flex-wrap gap-3">
                   {categorias.map(cat => (
-                    <div key={cat} className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
-                      <span className="font-bold text-slate-700">{cat}</span>
+                    <div key={cat} className="flex items-center gap-2 bg-slate-50 dark:bg-dark-bg px-4 py-2 rounded-xl border border-slate-200 dark:border-dark-border">
+                      <span className="font-bold text-slate-700 dark:text-slate-300">{cat}</span>
                       <button 
                         type="button"
                         onClick={(e) => {
@@ -1508,18 +1548,18 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             ref={setScrollElement}
-            className="fixed inset-0 bg-white z-[100] overflow-y-auto overflow-x-hidden selection:bg-blue-100"
+            className="fixed inset-0 bg-white dark:bg-dark-bg z-[100] overflow-y-auto overflow-x-hidden selection:bg-blue-100 dark:selection:bg-blue-900/50"
           >
             {(() => {
               const currentCanto = activeReadingCanto;
                 
               if (!currentCanto) {
                 return (
-                  <div className="p-20 text-center flex flex-col items-center justify-center min-h-screen bg-slate-50">
-                    <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200 max-w-sm">
-                      <Music2 className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold text-slate-800 mb-2">Música não encontrada</h3>
-                      <p className="text-slate-500 mb-6 font-serif">A música selecionada pode ter sido removida ou o ID é inválido.</p>
+                  <div className="p-20 text-center flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-dark-bg">
+                    <div className="bg-white dark:bg-dark-surface p-8 rounded-3xl shadow-xl border border-slate-200 dark:border-dark-border max-w-sm">
+                      <Music2 className="w-16 h-16 text-slate-200 dark:text-slate-700 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Música não encontrada</h3>
+                      <p className="text-slate-500 dark:text-slate-400 mb-6 font-serif">A música selecionada pode ter sido removida ou o ID é inválido.</p>
                       <button 
                         onClick={() => setIsReadingModeOpen(false)}
                         className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all"
@@ -1534,25 +1574,25 @@ export default function App() {
               return (
                 <div className="container mx-auto px-4 pr-16 sm:pr-8 sm:px-8 min-h-screen flex flex-col relative">
                   {/* Header Pillar */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start mb-8 border-b border-slate-200 pb-8 sticky top-0 bg-white/95 backdrop-blur-md z-[130] -mx-4 sm:-mx-8 px-4 sm:px-8 pt-20 sm:pt-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-8 border-b border-slate-200 dark:border-dark-border pb-8 sticky top-0 bg-white/95 dark:bg-dark-bg/95 backdrop-blur-md z-[130] -mx-4 sm:-mx-8 px-4 sm:px-8 pt-20 sm:pt-4">
                     <div className="flex-1 pr-4">
                       <div className="flex flex-wrap gap-2 items-center mb-3">
                         <span className={`text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tight shadow-sm ${readingAgenda ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
                           {readingAgenda ? 'FOLHETO' : 'LEITURA'}
                         </span>
-                        <span className="text-blue-600 font-bold uppercase text-[10px] tracking-widest">{currentCanto.season}</span>
-                        <span className="text-slate-300 font-light uppercase text-[10px]">|</span>
-                        <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">{currentCanto.tipo}</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold uppercase text-[10px] tracking-widest">{currentCanto.season}</span>
+                        <span className="text-slate-300 dark:text-slate-700 font-light uppercase text-[10px]">|</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-widest">{currentCanto.tipo}</span>
                       </div>
-                      <h2 className="text-3xl sm:text-5xl font-serif font-black text-slate-900 leading-[1.1] mb-2 tracking-tight">
+                      <h2 className="text-3xl sm:text-5xl font-serif font-black text-slate-900 dark:text-white leading-[1.1] mb-2 tracking-tight">
                         {currentCanto.nome}
                       </h2>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                         {readingAgenda ? (
                           <>
-                            <span className="text-blue-900">{readingAgenda.titulo}</span>
-                            <span className="text-slate-200">•</span>
-                            <span className="bg-slate-100 px-2 py-0.5 rounded text-[9px] text-slate-600">Música {readingIndex + 1} de {readingAgenda.cantosIds!.length}</span>
+                            <span className="text-blue-900 dark:text-blue-300">{readingAgenda.titulo}</span>
+                            <span className="text-slate-200 dark:text-slate-800">•</span>
+                            <span className="bg-slate-100 dark:bg-dark-surface px-2 py-0.5 rounded text-[9px] text-slate-600 dark:text-slate-400">Música {readingIndex + 1} de {readingAgenda.cantosIds!.length}</span>
                           </>
                         ) : (
                           <span>CIFRA INDIVIDUAL • REPERTÓRIO</span>
@@ -1562,18 +1602,18 @@ export default function App() {
 
                     <div className="flex gap-2 sm:gap-3 mt-6 sm:mt-0 flex-wrap sm:flex-nowrap items-center">
                       {currentCanto.bpm && (
-                        <div className="bg-slate-900 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-800">
+                        <div className="bg-slate-900 dark:bg-slate-950 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-800 dark:border-slate-800">
                           <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">BPM</span>
                           <span className="text-xl font-black tabular-nums">{currentCanto.bpm}</span>
                         </div>
                       )}
                       {currentCanto.compasso && (
-                        <div className="bg-slate-600 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-500">
+                        <div className="bg-slate-600 dark:bg-slate-800 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-500 dark:border-slate-700">
                           <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">COMPASSO</span>
                           <span className="text-xl font-black tracking-tight">{currentCanto.compasso}</span>
                         </div>
                       )}
-                      <div className="bg-blue-600 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-blue-500">
+                      <div className="bg-blue-600 dark:bg-blue-800 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-blue-500 dark:border-blue-700">
                         <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">ORIGINAL</span>
                         <span className="text-xl font-black">{currentCanto.tom || '-'}</span>
                       </div>
@@ -1583,7 +1623,7 @@ export default function App() {
                   {/* FIXED CLOSE BUTTON - Compact */}
                   <button 
                     onClick={() => setIsReadingModeOpen(false)}
-                    className="fixed top-3 left-3 sm:top-4 sm:left-4 z-[200] bg-white shadow-xl p-2 sm:p-2.5 rounded-full text-slate-800 hover:bg-slate-100 hover:text-blue-600 transition-all border border-slate-200 active:scale-90 flex items-center justify-center group"
+                    className="fixed top-3 left-3 sm:top-4 sm:left-4 z-[200] bg-white dark:bg-dark-surface shadow-xl p-2 sm:p-2.5 rounded-full text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-dark-surface-hover hover:text-blue-600 dark:hover:text-blue-400 transition-all border border-slate-200 dark:border-dark-border active:scale-90 flex items-center justify-center group"
                     title="Fechar"
                   >
                     <X className="w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-90 transition-transform duration-300" />
@@ -1591,16 +1631,16 @@ export default function App() {
                   
                   {/* Cifra Display Area */}
                   <div 
-                    className="flex-1 whitespace-pre-wrap text-slate-800 pb-64 font-serif leading-relaxed"
+                    className="flex-1 whitespace-pre-wrap text-slate-800 dark:text-slate-200 pb-64 font-serif leading-relaxed"
                     style={{ fontSize: `${fontSize}px` }}
                   >
                     {/* Add extra padding at the top to start below the sticky header gap */}
                     <div className="pt-4">
                       {/* Sub-label for key if transposed */}
                       {keyOffset !== 0 && (
-                        <div className="mb-6 inline-flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-100 text-sm font-bold text-blue-700">
+                        <div className="mb-6 inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800 text-sm font-bold text-blue-700 dark:text-blue-300">
                           <span>Tom atual:</span>
-                          <span className="bg-white px-2 py-0.5 rounded-lg shadow-sm border border-blue-200">{currentKey}</span>
+                          <span className="bg-white dark:bg-dark-surface px-2 py-0.5 rounded-lg shadow-sm border border-blue-200 dark:border-blue-800">{currentKey}</span>
                         </div>
                       )}
                       {formattedLetra}
@@ -1611,11 +1651,13 @@ export default function App() {
                   <div className="fixed right-1 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 sm:top-24 sm:translate-y-0 bottom-40 sm:bottom-32 flex flex-col gap-2 sm:gap-4 z-[140] pointer-events-none">
                     <div className="flex flex-col gap-2 sm:gap-3 pointer-events-auto h-full overflow-y-auto no-scrollbar py-2 sm:py-4 px-0.5 sm:px-1">
                     {/* Auto-Scroll Controls Column */}
-                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-full p-1 sm:p-1.5 border border-emerald-100 shadow-xl">
+                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-full p-1 sm:p-1.5 border border-emerald-100 dark:border-emerald-900/50 shadow-xl">
                       <button 
                         onClick={() => setIsAutoScrolling(!isAutoScrolling)}
                         className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90
-                          ${isAutoScrolling ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                          ${isAutoScrolling 
+                            ? 'bg-emerald-600 text-white animate-pulse' 
+                            : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'}`}
                         title={isAutoScrolling ? "Pausar" : "Iniciar"}
                       >
                         {isAutoScrolling ? <Pause className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 ml-0.5" strokeWidth={2.5} />}
@@ -1625,7 +1667,7 @@ export default function App() {
                         <select 
                           value={scrollSpeed}
                           onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                          className="bg-transparent text-[9px] sm:text-[10px] font-black text-emerald-900 outline-none text-center appearance-none cursor-pointer hover:text-emerald-600 px-0.5"
+                          className="bg-transparent text-[9px] sm:text-[10px] font-black text-emerald-900 dark:text-emerald-100 outline-none text-center appearance-none cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 px-0.5"
                         >
                           {[0.1, 0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3].map(v => (
                             <option key={v} value={v}>{v}x</option>
@@ -1635,7 +1677,7 @@ export default function App() {
                     </div>
 
                     {/* Transposition Column */}
-                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-blue-100 shadow-xl">
+                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-blue-100 dark:border-blue-900/50 shadow-xl">
                       <button 
                         onClick={() => setKeyOffset(prev => prev + 1)}
                         className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all shadow-md active:scale-90"
@@ -1645,23 +1687,23 @@ export default function App() {
                       
                       <div className="flex flex-col items-center py-1 sm:py-2 px-0.5">
                         <span className="text-[6px] sm:text-[7px] font-black text-blue-400 uppercase tracking-tighter mb-0.5">TOM</span>
-                        <span className="text-[11px] sm:text-sm font-black text-blue-900 tabular-nums">
+                        <span className="text-[11px] sm:text-sm font-black text-blue-900 dark:text-blue-100 tabular-nums">
                           {currentKey}
                         </span>
                       </div>
 
                       <button 
                         onClick={() => setKeyOffset(prev => prev - 1)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-all active:scale-90 shadow-sm mb-1.5"
+                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-all active:scale-90 shadow-sm mb-1.5"
                       >
                         <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
                       </button>
 
                       {keyOffset !== 0 && (
-                        <div className="flex flex-col gap-1.5 border-t border-blue-50 pt-1.5 w-full items-center">
+                        <div className="flex flex-col gap-1.5 border-t border-blue-50 dark:border-blue-900/50 pt-1.5 w-full items-center">
                           <button 
                             onClick={() => setKeyOffset(0)}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-dark-bg transition-all"
                             title="Resetar Tom Original"
                           >
                             <RefreshCcw className="w-3.5 h-3.5" />
@@ -1685,7 +1727,7 @@ export default function App() {
                                 }
                               }
                             }}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-all shadow-sm"
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm"
                             title="Salvar Tonalidade na Música"
                           >
                             <Save className="w-3.5 h-3.5" />
@@ -1695,27 +1737,27 @@ export default function App() {
                     </div>
 
                     {/* Share Column */}
-                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-purple-100 shadow-xl">
+                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-purple-100 dark:border-purple-900/50 shadow-xl">
                       <button 
                         onClick={() => {
                           setEditingCanto(currentCanto);
                           setIsCantoModalOpen(true);
                         }}
-                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-all active:scale-90 mb-1 sm:mb-1.5"
+                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-90 mb-1 sm:mb-1.5"
                         title="Editar Música"
                       >
                         <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button 
                         onClick={() => exportCantoAsPDF(currentCanto, currentKey, transposedLetra || undefined)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all active:scale-90 mb-1 sm:mb-1.5"
+                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-90 mb-1 sm:mb-1.5"
                         title="Exportar PDF"
                       >
                         <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button 
                         onClick={() => exportCantoAsJSON(currentCanto)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-all active:scale-90"
+                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all active:scale-90"
                         title="Exportar JSON"
                       >
                         <FileJson className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1814,10 +1856,10 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+              className="bg-white dark:bg-dark-surface rounded-[2.5rem] w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
             >
-              <div className="p-8 pb-4 border-b border-slate-50">
-                <h3 className="text-2xl font-serif font-black text-blue-900">
+              <div className="p-8 pb-4 border-b border-slate-50 dark:border-dark-border">
+                <h3 className="text-2xl font-serif font-black text-blue-900 dark:text-blue-400">
                   {editingAgenda ? 'Editar Evento' : 'Novo Compromisso'}
                 </h3>
               </div>
@@ -1825,59 +1867,59 @@ export default function App() {
               <div className="p-8 py-6 overflow-y-auto flex-1 custom-scrollbar">
                 <form id="agendaForm" onSubmit={handleSaveAgenda} className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Título do Evento</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Título do Evento</label>
                     <input 
                       name="titulo"
                       defaultValue={editingAgenda?.titulo}
                       placeholder="Ex: Missa com Coroinhas" 
-                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+                      className="w-full border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-bg p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium dark:text-white" 
                       required
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Local</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Local</label>
                     <input 
                       name="local"
                       defaultValue={editingAgenda?.local}
                       placeholder="Ex: Matriz" 
-                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+                      className="w-full border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-bg p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium dark:text-white" 
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Data e Hora</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Data e Hora</label>
                     <input 
                       name="data"
                       type="datetime-local" 
                       defaultValue={editingAgenda?.data}
-                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" 
+                      className="w-full border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-bg p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium dark:text-white" 
                       required
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Recorrência</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Recorrência</label>
                     <select 
                       name="recorrencia" 
                       defaultValue={editingAgenda?.recorrencia || 'unica'}
-                      className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-white"
+                      className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-white dark:bg-dark-bg dark:text-white"
                     >
                       <option value="unica">Evento Único</option>
                       <option value="mensal">Repetir Mensalmente</option>
                       <option value="anual">Repetir Anualmente</option>
                     </select>
                   </div>
-                  <label className="flex items-center gap-3 text-blue-700 bg-blue-50 p-4 rounded-2xl cursor-pointer hover:bg-blue-100 transition-colors">
+                  <label className="flex items-center gap-3 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                     <input type="checkbox" name="syncGoogle" className="w-5 h-5 accent-blue-600" /> 
                     <span className="text-sm font-bold">Sincronizar Google Agenda</span>
                   </label>
 
                   {/* Song Selection for Playlist */}
-                  <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-dark-border">
                     <div className="flex justify-between items-center px-1">
-                      <h4 className="text-[10px] font-black uppercase text-slate-400">Roteiro Musical</h4>
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Roteiro Musical</h4>
                       <button 
                         type="button"
                         onClick={() => setShowCantoPicker(true)}
-                        className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline uppercase tracking-wider"
+                        className="text-[10px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline uppercase tracking-wider"
                       >
                         <Plus className="w-3 h-3" />
                         Adicionar Música
@@ -1885,8 +1927,8 @@ export default function App() {
                     </div>
                     
                     {selectedCantosForAgenda.length === 0 ? (
-                      <div className="p-8 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Nenhuma música no roteiro</p>
+                      <div className="p-8 bg-slate-50 dark:bg-dark-bg border border-dashed border-slate-200 dark:border-dark-border rounded-2xl text-center">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Nenhuma música no roteiro</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -1894,12 +1936,12 @@ export default function App() {
                           const canto = cantos.find(c => c.id === id);
                           if (!canto) return null;
                           return (
-                            <div key={`${id}-${index}`} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                            <div key={`${id}-${index}`} className="flex items-center justify-between p-3 bg-white dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl shadow-sm">
                               <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-black text-slate-300 w-5 text-center">{index + 1}</span>
+                                <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 w-5 text-center">{index + 1}</span>
                                 <div className="flex flex-col">
-                                  <span className="text-[9px] font-black text-blue-500 uppercase leading-none mb-1">{canto.tipo}</span>
-                                  <span className="text-sm font-bold text-slate-800 leading-tight">{canto.nome}</span>
+                                  <span className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase leading-none mb-1">{canto.tipo}</span>
+                                  <span className="text-sm font-bold text-slate-800 dark:text-white leading-tight">{canto.nome}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
@@ -1913,7 +1955,7 @@ export default function App() {
                                         setSelectedCantosForAgenda(newIds);
                                       }
                                     }}
-                                    className="p-1 text-slate-300 hover:text-blue-500 disabled:opacity-30"
+                                    className="p-1 text-slate-300 dark:text-slate-700 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-30"
                                     disabled={index === 0}
                                   >
                                     <ArrowUp className="w-4 h-4" />
@@ -1927,7 +1969,7 @@ export default function App() {
                                         setSelectedCantosForAgenda(newIds);
                                       }
                                     }}
-                                    className="p-1 text-slate-300 hover:text-blue-500 disabled:opacity-30"
+                                    className="p-1 text-slate-300 dark:text-slate-700 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-30"
                                     disabled={index === selectedCantosForAgenda.length - 1}
                                   >
                                     <ArrowDown className="w-4 h-4" />
@@ -1936,7 +1978,7 @@ export default function App() {
                                 <button 
                                   type="button"
                                   onClick={() => setSelectedCantosForAgenda(prev => prev.filter((_, i) => i !== index))}
-                                  className="p-2 text-slate-300 hover:text-red-500 ml-1 hover:bg-red-50 rounded-lg transition-colors"
+                                  className="p-2 text-slate-300 dark:text-slate-700 hover:text-red-500 ml-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 >
                                   <X className="w-4 h-4" />
                                 </button>
@@ -1950,18 +1992,18 @@ export default function App() {
                 </form>
               </div>
 
-              <div className="p-8 border-t border-slate-50 flex justify-end gap-3 bg-white">
+              <div className="p-8 border-t border-slate-50 dark:border-dark-border flex justify-end gap-3 bg-white dark:bg-dark-surface">
                 <button 
                   type="button"
                   onClick={() => setIsAgendaModalOpen(false)} 
-                  className="px-6 py-3 text-slate-500 font-bold hover:text-slate-800 transition-colors"
+                  className="px-6 py-3 text-slate-500 dark:text-slate-400 font-bold hover:text-slate-800 dark:hover:text-white transition-colors"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
                   form="agendaForm"
-                  className="px-10 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all active:scale-95"
+                  className="px-10 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 hover:-translate-y-1 transition-all active:scale-95"
                 >
                   Salvar Evento
                 </button>
@@ -1979,32 +2021,32 @@ export default function App() {
               initial={{ scale: 1.1, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 1.1, opacity: 0 }}
-              className="bg-white rounded-[2rem] p-8 w-full max-w-xl max-h-[85vh] flex flex-col"
+              className="bg-white dark:bg-dark-surface rounded-[2rem] p-8 w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 dark:border-dark-border"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-serif font-black text-blue-900">Selecionar Música</h3>
+                <h3 className="text-2xl font-serif font-black text-blue-900 dark:text-blue-400">Selecionar Música</h3>
                 <button 
                   onClick={() => setShowCantoPicker(false)}
-                  className="bg-slate-100 p-2 rounded-full text-slate-500 hover:bg-slate-200"
+                  className="bg-slate-100 dark:bg-dark-bg p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dark-bg/60"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
               
               <div className="relative mb-6">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 w-5 h-5" />
                 <input 
                   type="text" 
                   placeholder="Pesquisar repertório..." 
                   value={searchCanto}
                   onChange={(e) => setSearchCanto(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border dark:text-white rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
                 />
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                 {filteredCantos.length === 0 ? (
-                  <div className="text-center py-10 opacity-40">Nenhuma música encontrada</div>
+                  <div className="text-center py-10 opacity-40 dark:text-white">Nenhuma música encontrada</div>
                 ) : (
                   filteredCantos.map(canto => (
                     <button 
@@ -2013,18 +2055,18 @@ export default function App() {
                         setSelectedCantosForAgenda(prev => [...prev, canto.id]);
                         setShowCantoPicker(false);
                       }}
-                      className="w-full text-left p-4 rounded-2xl bg-white border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all flex justify-between items-center"
+                      className="w-full text-left p-4 rounded-2xl bg-white dark:bg-dark-bg border border-slate-100 dark:border-dark-border hover:border-blue-300 dark:hover:border-blue-800 hover:shadow-md transition-all flex justify-between items-center"
                     >
                       <div>
-                        <span className="text-[10px] font-black text-blue-500 uppercase block mb-0.5">{canto.tipo}</span>
-                        <span className="font-bold text-slate-800">{canto.nome}</span>
+                        <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase block mb-0.5">{canto.tipo}</span>
+                        <span className="font-bold text-slate-800 dark:text-white">{canto.nome}</span>
                         <div className="flex gap-2 items-center mt-1">
-                          <span className="text-[10px] opacity-40 uppercase">Ano {canto.ano}</span>
-                          <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
-                          <span className="text-[10px] opacity-40 uppercase">{canto.season}</span>
+                          <span className="text-[10px] opacity-40 dark:opacity-60 dark:text-slate-300 uppercase">Ano {canto.ano}</span>
+                          <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
+                          <span className="text-[10px] opacity-40 dark:opacity-60 dark:text-slate-300 uppercase">{canto.season}</span>
                         </div>
                       </div>
-                      <Plus className="w-5 h-5 text-blue-400" />
+                      <Plus className="w-5 h-5 text-blue-400 dark:text-blue-500" />
                     </button>
                   ))
                 )}
@@ -2042,16 +2084,16 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
+              className="bg-white dark:bg-dark-surface rounded-3xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-dark-border"
             >
-              <h3 className="text-2xl font-serif font-bold mb-6 text-blue-900">
+              <h3 className="text-2xl font-serif font-bold mb-6 text-blue-900 dark:text-blue-400">
                 {editingCanto ? 'Editar Música' : 'Adicionar Música'}
               </h3>
               <form onSubmit={handleSaveCanto} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Ano Litúrgico</label>
-                    <select name="ano" defaultValue={editingCanto?.ano || 'Geral'} className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none">
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Ano Litúrgico</label>
+                    <select name="ano" defaultValue={editingCanto?.ano || 'Geral'} className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none">
                       <option value="A">Ano A</option>
                       <option value="B">Ano B</option>
                       <option value="C">Ano C</option>
@@ -2059,8 +2101,8 @@ export default function App() {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tempo Litúrgico</label>
-                    <select name="season" defaultValue={editingCanto?.season || selectedSeason || 'Geral'} className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none">
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Tempo Litúrgico</label>
+                    <select name="season" defaultValue={editingCanto?.season || selectedSeason || 'Geral'} className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none">
                       {temposLiturgicos.map(s => (
                         <option key={s.id} value={s.id}>{s.label}</option>
                       ))}
@@ -2069,8 +2111,8 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Momento da Missa</label>
-                  <select name="tipo" defaultValue={editingCanto?.tipo || categorias[0]} className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold">
+                  <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Momento da Missa</label>
+                  <select name="tipo" defaultValue={editingCanto?.tipo || categorias[0]} className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none font-bold">
                     {categorias.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
@@ -2078,54 +2120,54 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Título da Música</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Título da Música</label>
                   <input 
                     name="nome"
                     defaultValue={editingCanto?.nome}
                     placeholder="Título da canção" 
-                    className="w-full border border-slate-200 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500" 
+                    className="w-full border border-slate-200 dark:border-dark-border dark:bg-dark-bg dark:text-white p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500" 
                     required
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Tom Original</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Tom Original</label>
                     <input 
                       name="tom" 
                       defaultValue={editingCanto?.tom || 'C'}
                       placeholder="C"
-                      className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold uppercase"
+                      className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none font-bold uppercase"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">BPM</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">BPM</label>
                     <input 
                       name="bpm" 
                       type="number"
                       defaultValue={editingCanto?.bpm}
                       placeholder="120"
-                      className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold"
+                      className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none font-bold"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Compasso</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Compasso</label>
                     <input 
                       name="compasso" 
                       defaultValue={editingCanto?.compasso}
                       placeholder="4/4"
-                      className="w-full border border-slate-200 p-4 rounded-2xl bg-slate-50 outline-none font-bold"
+                      className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none font-bold"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Letra ou Cifra</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Letra ou Cifra</label>
                   <textarea 
                     name="letra"
                     defaultValue={editingCanto?.letra}
                     placeholder="Escreva a letra ou cole aqui..." 
-                    className="w-full border border-slate-200 p-4 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-blue-500 font-serif"
+                    className="w-full border border-slate-200 dark:border-dark-border dark:bg-dark-bg dark:text-white p-4 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-blue-500 font-serif"
                   />
                 </div>
 
@@ -2133,13 +2175,13 @@ export default function App() {
                   <button 
                     type="button"
                     onClick={() => setIsCantoModalOpen(false)} 
-                    className="px-6 py-3 text-slate-400 font-bold"
+                    className="px-6 py-3 text-slate-400 dark:text-slate-500 font-bold hover:text-slate-600 dark:hover:text-slate-300"
                   >
                     Voltar
                   </button>
                   <button 
                     type="submit"
-                    className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all"
+                    className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 hover:-translate-y-1 transition-all"
                   >
                     Salvar
                   </button>
@@ -2156,25 +2198,25 @@ export default function App() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className={`fixed bottom-24 left-4 right-4 sm:left-auto sm:right-8 sm:w-80 z-[100] p-4 rounded-2xl shadow-2xl flex items-center gap-3 border ${
-              notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
-              notification.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
-              'bg-blue-50 border-blue-200 text-blue-800'
-            }`}
+            className={`fixed bottom-24 left-4 right-4 sm:left-auto sm:right-8 sm:w-80 z-[300] p-4 rounded-2xl shadow-2xl flex items-center gap-3 border ${
+              notification.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-900/90 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-100' :
+              notification.type === 'error' ? 'bg-red-50 dark:bg-red-900/90 border-red-200 dark:border-red-800 text-red-800 dark:text-red-100' :
+              'bg-blue-50 dark:bg-blue-900/90 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-100'
+            } backdrop-blur-md`}
           >
             <div className={`p-2 rounded-full ${
-              notification.type === 'success' ? 'bg-emerald-100' :
-              notification.type === 'error' ? 'bg-red-100' :
-              'bg-blue-100'
+              notification.type === 'success' ? 'bg-emerald-100 dark:bg-emerald-800/50' :
+              notification.type === 'error' ? 'bg-red-100 dark:bg-red-800/50' :
+              'bg-blue-100 dark:bg-blue-800/50'
             }`}>
-              {notification.type === 'success' && <Check className="w-5 h-5 text-emerald-600" />}
-              {notification.type === 'error' && <X className="w-5 h-5 text-red-600" />}
-              {notification.type === 'info' && <Info className="w-5 h-5 text-blue-600" />}
+              {notification.type === 'success' && <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+              {notification.type === 'error' && <X className="w-5 h-5 text-red-600 dark:text-red-400" />}
+              {notification.type === 'info' && <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
             </div>
             <div className="flex-1 text-sm font-bold leading-tight">
               {notification.message}
             </div>
-            <button onClick={() => setNotification(null)} className="p-1 hover:bg-black/5 rounded-lg transition-colors">
+            <button onClick={() => setNotification(null)} className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">
               <X className="w-4 h-4 opacity-50" />
             </button>
           </motion.div>
