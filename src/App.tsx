@@ -153,18 +153,32 @@ export default function App() {
 
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved) return saved === 'dark';
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+    } catch (e) {
+      console.warn('LocalStorage access denied for theme preference.');
+    }
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   useEffect(() => {
-    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    try {
+      localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    } catch (e) {
+      // Ignorar erro de armazenamento
     }
+    
+    // Use requestAnimationFrame para garantir que a classe seja aplicada após a montagem/render
+    const updateTheme = () => {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+    
+    updateTheme();
   }, [isDarkMode]);
 
   // Persistence
@@ -331,12 +345,12 @@ export default function App() {
         return (
           <span
             key={i}
-            className={`font-bold px-1.5 py-0.5 rounded-md mx-0.5 border shadow-sm select-none transition-all ${
+            className={`font-mono transition-all ${
               isChordHighlighterActive 
-                ? 'text-white bg-blue-700 border-blue-800 scale-105' 
-                : 'text-blue-700 bg-blue-50/80 border-blue-100'
+                ? 'text-white bg-blue-700 rounded-sm px-[1px] mx-[-1px] font-bold' 
+                : 'text-blue-700'
             }`}
-            style={{ display: 'inline-block', lineHeight: '1' }}
+            style={{ display: 'inline', whiteSpace: 'pre' }}
           >
             {part}
           </span>
@@ -795,19 +809,19 @@ export default function App() {
       cursorY += 15;
 
       // Lyrics
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(0);
       doc.setFont('courier', 'normal'); 
 
       const baseLyrics = (transposedLyrics && transposedLyrics.trim() !== '') ? transposedLyrics : canto.letra;
       const lyricsToExport = showChords ? baseLyrics : baseLyrics.replace(/\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/g, '');
       
-      const lines = doc.splitTextToSize(lyricsToExport, contentWidth);
+      const lines = lyricsToExport.split('\n');
       
       lines.forEach((line: string) => {
-        checkPageBreak(7);
+        checkPageBreak(8);
         doc.text(line, margin, cursorY);
-        cursorY += 7;
+        cursorY += 8;
       });
 
       doc.save(`${canto.nome.toLowerCase().replace(/\s+/g, '_')}.pdf`);
@@ -1309,7 +1323,27 @@ export default function App() {
                                </span>
                              )}
                           </div>
-                          <div className="flex gap-2 text-slate-300 dark:text-slate-700 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <div className="flex gap-1 text-slate-300 dark:text-slate-700 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                exportCantoAsPDF(canto);
+                              }}
+                              className="p-2 hover:text-red-500 transition-colors"
+                              title="Exportar PDF"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                exportCantoAsJSON(canto);
+                              }}
+                              className="p-2 hover:text-purple-500 transition-colors"
+                              title="Exportar JSON"
+                            >
+                              <FileJson className="w-4 h-4" />
+                            </button>
                             <button 
                               type="button"
                               onClick={(e) => {
@@ -1318,8 +1352,9 @@ export default function App() {
                                 setIsCantoModalOpen(true);
                               }}
                               className="p-2 hover:text-blue-600 dark:hover:text-blue-400"
+                              title="Editar"
                             >
-                              <Edit className="w-5 h-5" />
+                              <Edit className="w-4 h-4" />
                             </button>
                             <button 
                               type="button"
@@ -1327,10 +1362,10 @@ export default function App() {
                                 e.stopPropagation();
                                 handleDeleteCanto(canto.id);
                               }}
-                              className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                              className="p-2 hover:text-red-500 transition-colors"
                               title="Excluir Música"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
@@ -1642,11 +1677,11 @@ export default function App() {
                   
                   {/* Cifra Display Area */}
                   <div 
-                    className="flex-1 whitespace-pre-wrap text-slate-800 dark:text-slate-200 pb-64 font-serif leading-relaxed"
-                    style={{ fontSize: `${fontSize}px` }}
+                    className="flex-1 whitespace-pre text-slate-800 dark:text-slate-200 pb-64 font-mono tracking-normal overflow-x-auto selection:bg-blue-100 dark:selection:bg-blue-900/40"
+                    style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
                   >
                     {/* Add extra padding at the top to start below the sticky header gap */}
-                    <div className="pt-4">
+                    <div className="pt-4 min-w-max px-4">
                       {/* Sub-label for key if transposed */}
                       {keyOffset !== 0 && (
                         <div className="mb-6 inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800 text-sm font-bold text-blue-700 dark:text-blue-300">
@@ -1747,36 +1782,37 @@ export default function App() {
                       )}
                     </div>
 
-                    {/* Share Column */}
-                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-purple-100 dark:border-purple-900/50 shadow-xl">
+                    {/* Zoom & Display Column */}
+                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-slate-100 dark:border-dark-border shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
                       <button 
                         onClick={() => {
                           setEditingCanto(currentCanto);
                           setIsCantoModalOpen(true);
                         }}
-                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-90 mb-1 sm:mb-1.5"
+                        className="w-14 h-14 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-90 mb-2"
                         title="Editar Música"
                       >
-                        <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <Edit className="w-6 h-6" />
                       </button>
+
                       <button 
-                        onClick={() => exportCantoAsPDF(currentCanto, currentKey, transposedLetra || undefined)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-90 mb-1 sm:mb-1.5"
+                        onClick={() => currentCanto && exportCantoAsPDF(currentCanto, currentKey, transposedLetra || undefined)}
+                        className="w-14 h-14 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-90 mb-2"
                         title="Exportar PDF"
                       >
-                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <FileText className="w-6 h-6" />
                       </button>
+
                       <button 
-                        onClick={() => exportCantoAsJSON(currentCanto)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all active:scale-90"
+                        onClick={() => currentCanto && exportCantoAsJSON(currentCanto)}
+                        className="w-14 h-14 flex items-center justify-center rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all active:scale-90 mb-2"
                         title="Exportar JSON"
                       >
-                        <FileJson className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <FileJson className="w-6 h-6" />
                       </button>
-                    </div>
-
-                    {/* Zoom & Display Column */}
-                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                      
+                      <div className="h-px w-8 bg-slate-100 dark:bg-dark-border mb-2" />
+                      
                       <button 
                         onClick={() => setShowChords(!showChords)}
                         className={`w-14 h-14 flex items-center justify-center rounded-full transition-all active:scale-90 border shadow-sm mb-2
@@ -2189,7 +2225,7 @@ export default function App() {
                     value={lyricsValue}
                     onChange={(e) => setLyricsValue(e.target.value)}
                     placeholder="Escreva a letra ou cole aqui..." 
-                    className="w-full border border-slate-200 dark:border-dark-border dark:bg-dark-bg dark:text-white p-4 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-blue-500 font-serif"
+                    className="w-full border border-slate-200 dark:border-dark-border dark:bg-dark-bg dark:text-white p-4 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm leading-relaxed"
                   />
                 </div>
 
@@ -2242,7 +2278,7 @@ export default function App() {
                   value={lyricsValue}
                   onChange={(e) => setLyricsValue(e.target.value)}
                   placeholder="Escreva a letra ou cole aqui..." 
-                  className="w-full h-full border-none outline-none bg-transparent font-serif text-lg sm:text-2xl text-slate-800 dark:text-white resize-none leading-relaxed"
+                  className="w-full h-full border-none outline-none bg-transparent font-mono text-lg sm:text-xl text-slate-800 dark:text-white resize-none leading-relaxed"
                   autoFocus
                 />
               </div>
