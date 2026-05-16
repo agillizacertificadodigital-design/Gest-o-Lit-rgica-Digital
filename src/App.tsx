@@ -1508,9 +1508,10 @@ export default function App() {
             className="fixed inset-0 bg-white z-[100] overflow-y-auto overflow-x-hidden selection:bg-blue-100"
           >
             {(() => {
-              const currentCanto = readingAgenda?.cantosIds 
-                ? cantos.find(c => String(c.id) === String(readingAgenda.cantosIds![readingIndex]))
-                : readingCanto;
+              const currentCantoId = readingAgenda?.cantosIds 
+                ? readingAgenda.cantosIds[readingIndex]
+                : readingCanto?.id;
+              const currentCanto = cantos.find(c => String(c.id) === String(currentCantoId));
                 
               if (!currentCanto) {
                 return (
@@ -1531,9 +1532,9 @@ export default function App() {
               }
 
               return (
-                <div className="container mx-auto p-4 sm:p-8 max-w-4xl min-h-screen flex flex-col relative">
+                <div className="container mx-auto px-4 pr-16 sm:pr-8 sm:px-8 min-h-screen flex flex-col relative">
                   {/* Header Pillar */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start mb-8 border-b border-slate-200 pb-8 sticky top-0 bg-white/95 backdrop-blur-md z-10 -mx-4 sm:-mx-8 px-4 sm:px-8 pt-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-8 border-b border-slate-200 pb-8 sticky top-0 bg-white/95 backdrop-blur-md z-[130] -mx-4 sm:-mx-8 px-4 sm:px-8 pt-20 sm:pt-4">
                     <div className="flex-1 pr-4">
                       <div className="flex flex-wrap gap-2 items-center mb-3">
                         <span className={`text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tight shadow-sm ${readingAgenda ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
@@ -1559,7 +1560,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 sm:gap-3 mt-6 sm:mt-0 flex-wrap sm:flex-nowrap">
+                    <div className="flex gap-2 sm:gap-3 mt-6 sm:mt-0 flex-wrap sm:flex-nowrap items-center">
                       {currentCanto.bpm && (
                         <div className="bg-slate-900 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-800">
                           <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">BPM</span>
@@ -1576,14 +1577,17 @@ export default function App() {
                         <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">ORIGINAL</span>
                         <span className="text-xl font-black">{currentCanto.tom || '-'}</span>
                       </div>
-                      <button 
-                        onClick={() => setIsReadingModeOpen(false)}
-                        className="bg-slate-100 p-4 rounded-full text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-all shadow-sm active:scale-95 flex items-center justify-center h-[60px] w-[60px] sm:h-auto sm:w-auto"
-                      >
-                        <X className="w-8 h-8" />
-                      </button>
                     </div>
                   </div>
+
+                  {/* FIXED CLOSE BUTTON - Compact */}
+                  <button 
+                    onClick={() => setIsReadingModeOpen(false)}
+                    className="fixed top-3 left-3 sm:top-4 sm:left-4 z-[200] bg-white shadow-xl p-2 sm:p-2.5 rounded-full text-slate-800 hover:bg-slate-100 hover:text-blue-600 transition-all border border-slate-200 active:scale-90 flex items-center justify-center group"
+                    title="Fechar"
+                  >
+                    <X className="w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-90 transition-transform duration-300" />
+                  </button>
                   
                   {/* Cifra Display Area */}
                   <div 
@@ -1603,80 +1607,80 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Floating Action Center (Top Right) - Adjusted to avoid bottom button overlap */}
-                  <div className="fixed right-6 sm:right-10 top-24 bottom-32 flex flex-col gap-4 z-30 pointer-events-none">
-                    <div className="flex flex-col gap-4 pointer-events-auto h-full overflow-y-auto no-scrollbar py-4 px-1">
+                  {/* Floating Action Center (Top Right) - Compact */}
+                  <div className="fixed right-1 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 sm:top-24 sm:translate-y-0 bottom-40 sm:bottom-32 flex flex-col gap-2 sm:gap-4 z-[140] pointer-events-none">
+                    <div className="flex flex-col gap-2 sm:gap-3 pointer-events-auto h-full overflow-y-auto no-scrollbar py-2 sm:py-4 px-0.5 sm:px-1">
                     {/* Auto-Scroll Controls Column */}
-                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-full p-2 border border-emerald-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-full p-1 sm:p-1.5 border border-emerald-100 shadow-xl">
                       <button 
                         onClick={() => setIsAutoScrolling(!isAutoScrolling)}
-                        className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90
+                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90
                           ${isAutoScrolling ? 'bg-emerald-600 text-white animate-pulse' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
                         title={isAutoScrolling ? "Pausar" : "Iniciar"}
                       >
-                        {isAutoScrolling ? <Pause className="w-7 h-7" strokeWidth={2.5} /> : <Play className="w-7 h-7 ml-1" strokeWidth={2.5} />}
+                        {isAutoScrolling ? <Pause className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 ml-0.5" strokeWidth={2.5} />}
                       </button>
-                      <div className="mt-2 mb-1 flex flex-col items-center">
-                        <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter opacity-70">VELOC.</span>
+                      <div className="mt-1.5 mb-1 flex flex-col items-center">
+                        <span className="text-[6px] sm:text-[7px] font-black text-emerald-500 uppercase tracking-tighter opacity-70">VEL.</span>
                         <select 
                           value={scrollSpeed}
                           onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                          className="bg-transparent text-[11px] font-black text-emerald-900 outline-none text-center appearance-none cursor-pointer hover:text-emerald-600 px-2"
+                          className="bg-transparent text-[9px] sm:text-[10px] font-black text-emerald-900 outline-none text-center appearance-none cursor-pointer hover:text-emerald-600 px-0.5"
                         >
                           {[0.1, 0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3].map(v => (
                             <option key={v} value={v}>{v}x</option>
                           ))}
                         </select>
-                        <ArrowDown className="w-3 h-3 text-emerald-400 -mt-1" />
                       </div>
                     </div>
 
                     {/* Transposition Column */}
-                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-blue-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-blue-100 shadow-xl">
                       <button 
                         onClick={() => setKeyOffset(prev => prev + 1)}
-                        className="w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all shadow-md active:scale-90"
+                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all shadow-md active:scale-90"
                       >
-                        <ArrowUp className="w-6 h-6" strokeWidth={3} />
+                        <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
                       </button>
-                      <div className="flex flex-col items-center py-4 px-1">
-                        <span className="text-[8px] font-black text-blue-400 uppercase tracking-tighter mb-1">TOM ATUAL</span>
-                        <span className="text-xl font-black text-blue-900 tabular-nums">
+                      <div className="flex flex-col items-center py-1.5 sm:py-3 px-0.5">
+                        <span className="text-[6px] sm:text-[7px] font-black text-blue-400 uppercase tracking-tighter mb-0.5">TOM</span>
+                        <span className="text-[11px] sm:text-sm font-black text-blue-900 tabular-nums">
                           {currentKey}
                         </span>
                       </div>
                       <button 
                         onClick={() => setKeyOffset(prev => prev - 1)}
-                        className="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-all active:scale-90 shadow-sm"
+                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center hover:bg-blue-200 transition-all active:scale-90 shadow-sm"
                       >
-                        <ArrowDown className="w-6 h-6" strokeWidth={3} />
+                        <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
                       </button>
-                      {keyOffset !== 0 && (
-                        <button 
-                          onClick={() => setKeyOffset(0)}
-                          className="mt-3 w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
-                          title="Resetar Tom"
-                        >
-                          <RefreshCcw className="w-4 h-4" />
-                        </button>
-                      )}
                     </div>
 
                     {/* Share Column */}
-                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-purple-100 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+                    <div className="flex flex-col items-center bg-white/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-purple-100 shadow-xl">
+                      <button 
+                        onClick={() => {
+                          setEditingCanto(currentCanto);
+                          setIsCantoModalOpen(true);
+                        }}
+                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-all active:scale-90 mb-1 sm:mb-1.5"
+                        title="Editar Música"
+                      >
+                        <Edit className="w-4 h-4 sm:w-5 sm:h-5" />
+                      </button>
                       <button 
                         onClick={() => exportCantoAsPDF(currentCanto, currentKey, transposedLetra || undefined)}
-                        className="w-14 h-14 flex items-center justify-center rounded-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all active:scale-90 mb-2"
+                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all active:scale-90 mb-1 sm:mb-1.5"
                         title="Exportar PDF"
                       >
-                        <FileText className="w-6 h-6" />
+                        <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                       <button 
                         onClick={() => exportCantoAsJSON(currentCanto)}
-                        className="w-14 h-14 flex items-center justify-center rounded-full bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-all active:scale-90"
+                        className="w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-purple-50 text-purple-600 border border-purple-100 hover:bg-purple-100 transition-all active:scale-90"
                         title="Exportar JSON"
                       >
-                        <FileJson className="w-6 h-6" />
+                        <FileJson className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     </div>
 
@@ -1995,7 +1999,7 @@ export default function App() {
       {/* CANTO MODAL */}
       <AnimatePresence>
         {isCantoModalOpen && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60] backdrop-blur-md">
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[200] backdrop-blur-md">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
