@@ -21,6 +21,9 @@
   --color-dark-muted: #94a3b8;
 }
 
+/* Force dark: variant to use the .dark class */
+@variant dark (&:where(.dark, .dark *));
+
 @layer base {
   .dark body {
     @apply bg-dark-bg text-dark-text;
