@@ -601,7 +601,18 @@ export default function App() {
     if (!canto.tom) return String(keyOffset > 0 ? `+${keyOffset}` : keyOffset);
     if (keyOffset === 0) return String(canto.tom);
 
-    // Reuse the transposition logic for the display key
+    const notesSharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const notesFlat = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    
+    // Determine preference based on target index
+    const cleanKey = canto.tom.match(/^[A-G][#b]?/i)?.[0] || 'C';
+    const rootIdx = NOTE_MAP[cleanKey];
+    if (rootIdx === undefined) return canto.tom;
+    
+    const targetIdx = (rootIdx + keyOffset + 12) % 12;
+    const flatPreferringIndices = [1, 3, 5, 6, 8, 10]; // Db, Eb, F, Gb, Ab, Bb
+    const targetNotes = flatPreferringIndices.includes(targetIdx) ? notesFlat : notesSharp;
+
     const transposeChordPart = (chord: string, offset: number) => {
       const rootMatch = chord.match(/^[A-G][#b]?/i);
       if (!rootMatch) return chord;
@@ -614,7 +625,7 @@ export default function App() {
       let newIndex = (rootIndex + offset) % 12;
       if (newIndex < 0) newIndex += 12;
 
-      return NOTES[newIndex] + rest;
+      return targetNotes[newIndex] + rest;
     };
 
     return String(transposeChordPart(canto.tom, keyOffset));
@@ -2388,6 +2399,18 @@ export default function App() {
                     </div>
 
                     <div className="flex gap-2 sm:gap-3 mt-6 sm:mt-0 flex-wrap sm:flex-nowrap items-center">
+                      <div className="bg-amber-500 text-white px-6 py-4 rounded-3xl flex flex-col items-center shadow-[0_20px_40px_-10px_rgba(245,158,11,0.5)] border-2 border-amber-400 ring-4 ring-amber-500/10">
+                        <span className="text-[10px] font-black opacity-70 uppercase tracking-widest mb-1">Tom Atual</span>
+                        <span className="text-3xl font-black leading-none drop-shadow-md">{currentKey || '-'}</span>
+                      </div>
+                      
+                      {currentCanto.tom && keyOffset !== 0 && (
+                        <div className="bg-slate-100 dark:bg-dark-surface text-slate-400 dark:text-slate-600 px-4 py-2.5 rounded-2xl flex flex-col items-center border border-slate-200 dark:border-dark-border">
+                          <span className="text-[9px] font-black uppercase tracking-tighter">Original</span>
+                          <span className="text-lg font-black">{currentCanto.tom}</span>
+                        </div>
+                      )}
+
                       {currentCanto.bpm && (
                         <div className="bg-slate-900 dark:bg-slate-950 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-800 dark:border-slate-800">
                           <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">BPM</span>
@@ -2400,10 +2423,6 @@ export default function App() {
                           <span className="text-xl font-black tracking-tight">{currentCanto.compasso}</span>
                         </div>
                       )}
-                      <div className="bg-blue-600 dark:bg-blue-800 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-blue-500 dark:border-blue-700">
-                        <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">ORIGINAL</span>
-                        <span className="text-xl font-black">{currentCanto.tom || '-'}</span>
-                      </div>
                     </div>
                   </div>
 
@@ -2429,13 +2448,15 @@ export default function App() {
                         className="whitespace-pre text-slate-800 dark:text-slate-100 font-mono tracking-normal relative z-20"
                         style={{ fontSize: `${fontSize}px`, lineHeight: '2' }}
                       >
-                         {/* Labels if transposed */}
-                         {keyOffset !== 0 && (
-                          <div className="mb-10 inline-flex items-center gap-3 bg-blue-600 text-white px-6 py-2.5 rounded-2xl shadow-xl shadow-blue-600/30 font-black text-sm uppercase tracking-widest translate-z-30">
-                            <span className="opacity-50">TOM:</span>
-                            <span>{currentKey}</span>
-                          </div>
-                        )}
+                         {/* Current Key Indicator on Paper */}
+                         <div className="mb-12 inline-flex items-center gap-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 px-8 py-4 rounded-3xl shadow-inner font-black text-lg uppercase tracking-widest relative overflow-hidden group">
+                           <div className="absolute inset-0 bg-blue-500/5 dark:bg-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                           <span className="text-slate-400 dark:text-slate-600 text-[12px]">Tom:</span>
+                           <span className="text-slate-900 dark:text-white text-3xl drop-shadow-sm">{currentKey}</span>
+                           {keyOffset !== 0 && (
+                             <span className="ml-2 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">Transposto</span>
+                           )}
+                         </div>
                         {formattedLetra}
                       </div>
                     </motion.div>
