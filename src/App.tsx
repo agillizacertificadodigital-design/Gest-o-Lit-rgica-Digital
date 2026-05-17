@@ -1044,9 +1044,13 @@ export default function App() {
           } else if (char === '│' || char === '|') {
             doc.line(midX, y - (4 * scale), midX, y + (1 * scale));
           } else if (char === '~' || char === '^') {
-            // Simple arch using lines for maximum compatibility
-            doc.line(currX + (0.1 * cW), bottomY, midX, topY - (0.5 * scale));
-            doc.line(midX, topY - (0.5 * scale), currX + cW - (0.1 * cW), bottomY);
+            // Smooth vector curve for musical tie
+            const startX = currX + (0.1 * cW);
+            const endX = currX + cW - (0.1 * cW);
+            const baseLineY = bottomY - (0.2 * scale);
+            const apexY = topY - (1.3 * scale);
+            doc.setLineWidth(0.4 * scale);
+            doc.lines([[ (midX - startX), (apexY - baseLineY), (endX - midX), (baseLineY - apexY) ]], startX, baseLineY, [1, 1], 'D');
           } else if (char === '└') {
             doc.line(midX, topY, midX, bottomY - (0.4 * scale));
             doc.line(midX + (0.4 * scale), bottomY, currX + cW, bottomY);
@@ -1432,19 +1436,34 @@ export default function App() {
   }
 
   return (
-    <div className="bg-slate-50 dark:bg-dark-bg min-h-screen text-slate-900 dark:text-dark-text font-sans pb-24 transition-colors duration-300">
-      {/* Navbar */}
-      <nav className="bg-blue-900 text-white p-4 shadow-lg sticky top-0 z-50">
-        <div className="container mx-auto flex justify-between items-center px-4">
-          <h1 className="text-xl font-bold flex items-center tracking-tight gap-2">
-            <Church className="w-6 h-6" /> 
-            <span className="hidden sm:inline">Gestão Litúrgica Digital</span>
-            <span className="sm:hidden">Liturgia Digital</span>
+    <div className="bg-slate-50 dark:bg-dark-bg min-h-screen text-slate-900 dark:text-dark-text font-sans pb-32 transition-colors duration-500 relative overflow-x-hidden">
+      {/* 3D Background Elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/20 dark:bg-blue-600/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-400/20 dark:bg-emerald-600/10 blur-[120px] rounded-full animate-pulse [animation-delay:2s]" />
+        <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-purple-400/10 dark:bg-purple-600/5 blur-[100px] rounded-full animate-pulse [animation-delay:4s]" />
+      </div>
+
+      {/* Navbar - Floating Glassmorphic */}
+      <nav className="fixed top-4 left-4 right-4 z-[60] px-4">
+        <motion.div 
+          initial={{ y: -100 }}
+          animate={{ y: 0 }}
+          className="container mx-auto px-6 py-4 bg-white/70 dark:bg-dark-surface/70 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-white/50 dark:border-white/5 flex justify-between items-center"
+        >
+          <h1 className="text-xl font-bold flex items-center tracking-tight gap-3 text-blue-900 dark:text-blue-400">
+            <div className="p-2 bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/30">
+              <Church className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-[10px] font-black uppercase tracking-tighter opacity-50">Liturgia Digital</span>
+              <span className="font-serif italic font-black">App Católico</span>
+            </div>
           </h1>
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-[10px] font-black text-blue-300 uppercase tracking-widest leading-none">Usuário</span>
-              <span className="text-xs font-bold">{user.displayName || user.email}</span>
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Bem-vindo</span>
+              <span className="text-xs font-black text-slate-700 dark:text-slate-300">{user.displayName || user.email?.split('@')[0]}</span>
             </div>
             <button 
               onClick={() => {
@@ -1452,40 +1471,52 @@ export default function App() {
                   signOut(auth);
                 }
               }}
-              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-blue-200 hover:text-white"
+              className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
               title="Sair"
             >
               <LogOut className="w-5 h-5" />
             </button>
           </div>
-        </div>
+        </motion.div>
       </nav>
 
-      {/* Tabs */}
-      <div className="bg-white dark:bg-dark-surface shadow-md sticky top-[60px] z-40 transition-colors">
-        <div className="container mx-auto flex justify-around">
+      {/* Tabs - Floating Dock Style at the bottom */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] w-fit max-w-[95vw]">
+        <motion.div 
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          className="flex items-center gap-2 p-3 bg-white/40 dark:bg-dark-surface/40 backdrop-blur-3xl rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] border border-white/40 dark:border-white/10 preserve-3d"
+        >
           {[
-            { id: 'tempos', icon: <Calendar className="w-5 h-5" />, label: 'TEMPOS' },
-            { id: 'agenda', icon: <Clock className="w-5 h-5" />, label: 'AGENDA' },
-            { id: 'cantos', icon: <Music className="w-5 h-5" />, label: 'REPERTÓRIO' },
-            { id: 'config', icon: <Settings className="w-5 h-5" />, label: 'CONFIGURAÇÕES' },
+            { id: 'tempos', icon: <Calendar className="w-6 h-6" />, label: 'Calendário' },
+            { id: 'agenda', icon: <Clock className="w-6 h-6" />, label: 'Agenda' },
+            { id: 'cantos', icon: <Music className="w-6 h-6" />, label: 'Músicas' },
+            { id: 'config', icon: <Settings className="w-6 h-6" />, label: 'Ajustes' },
           ].map(tab => (
-            <button 
+            <motion.button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center gap-1 py-4 px-2 w-full text-[10px] font-bold tracking-wider transition-all
+              whileHover={{ y: -10, scale: 1.1, translateZ: 20 }}
+              whileTap={{ scale: 0.9 }}
+              className={`relative flex flex-col items-center justify-center p-4 rounded-[2rem] transition-all min-w-[70px] sm:min-w-[90px]
                 ${activeTab === tab.id 
-                  ? 'text-blue-700 dark:text-blue-400 border-b-4 border-blue-700 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-900/20' 
-                  : 'text-slate-500 dark:text-slate-400 border-b-4 border-transparent hover:text-blue-600 dark:hover:text-blue-400'}`}
+                  ? 'bg-blue-600 text-white shadow-[0_15px_30px_rgba(37,99,235,0.4)]' 
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/10'}`}
             >
               {tab.icon}
-              {tab.label}
-            </button>
+              <span className="text-[10px] font-black uppercase mt-1 hidden sm:block">{tab.label}</span>
+              {activeTab === tab.id && (
+                <motion.div 
+                  layoutId="activeTabGlow"
+                  className="absolute -inset-1 blur-xl bg-blue-500/20 -z-10"
+                />
+              )}
+            </motion.button>
           ))}
-        </div>
+        </motion.div>
       </div>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 pt-32 pb-24 relative z-10">
         <AnimatePresence mode="wait">
           {/* TEMPOS SECTION */}
           {activeTab === 'tempos' && (
@@ -1496,29 +1527,50 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <div className="flex flex-col gap-2">
-                <h2 className="text-3xl font-serif font-bold text-blue-900 dark:text-blue-400">Ciclos Litúrgicos</h2>
-                <p className="text-slate-500 dark:text-slate-400">Explore o calendário litúrgico e encontre cantos específicos para cada tempo.</p>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-4xl font-serif font-black text-blue-900 dark:text-blue-400 tracking-tight">Ciclos Litúrgicos</h2>
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">Explore o calendário e prepare suas celebrações.</p>
+                </div>
+                <div className="h-1 w-20 bg-blue-600 rounded-full" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {temposLiturgicos.map(season => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 perspective-2000">
+                {temposLiturgicos.map((season, index) => (
                   <motion.button
                     key={season.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, scale: 0.9, rotateY: index % 2 === 0 ? 10 : -10 }}
+                    animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                    whileHover={{ 
+                      scale: 1.05, 
+                      y: -15, 
+                      rotateX: 5,
+                      rotateY: -5,
+                      z: 50,
+                      boxShadow: "0 40px 80px -20px rgba(0,0,0,0.2)"
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     onClick={() => setSelectedSeason(selectedSeason === season.id ? null : season.id)}
-                    className={`relative overflow-hidden bg-white dark:bg-dark-surface p-6 rounded-2xl border-l-[6px] shadow-md text-left transition-all hover:shadow-lg
-                      ${season.borderColor} ${selectedSeason === season.id ? 'ring-2 ring-blue-500' : 'border-transparent sm:border-l-[6px]'}`}
+                    className={`relative overflow-hidden bg-white/80 dark:bg-dark-surface/80 backdrop-blur-xl p-8 rounded-[3rem] border-t-2 border-white/50 dark:border-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] text-left transition-all preserve-3d group
+                      ${selectedSeason === season.id ? 'ring-4 ring-blue-500/20 border-blue-500' : ''}`}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className={`p-2 rounded-xl text-white ${season.color}`}>
+                    {/* Interior depth effect */}
+                    <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+
+                    <div className="flex justify-between items-start mb-6">
+                      <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center text-white shadow-2xl transform transition-transform group-hover:scale-110 group-hover:rotate-6 ${season.color} shadow-${season.borderColor.split('-')[1]}/30`}>
                         {getSeasonIcon(season.id)}
                       </div>
-                      <ChevronRight className={`w-5 h-5 text-slate-300 dark:text-slate-600 transition-transform ${selectedSeason === season.id ? 'rotate-90' : ''}`} />
+                      <div className="p-3 bg-slate-50 dark:bg-dark-bg rounded-2xl text-slate-300 dark:text-slate-600">
+                        <ChevronRight className={`w-6 h-6 transition-transform duration-500 ${selectedSeason === season.id ? 'rotate-90 text-blue-500' : ''}`} />
+                      </div>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">{season.label}</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{season.description}</p>
+                    <h3 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tighter leading-none mb-3">{season.label}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed opacity-80">{season.description}</p>
+                    
+                    {/* Bottom accent */}
+                    <div className={`absolute bottom-0 left-0 right-0 h-2 opacity-50 ${season.color}`} />
                   </motion.button>
                 ))}
               </div>
@@ -1599,61 +1651,80 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-3xl font-serif font-bold text-blue-900">Agenda</h2>
-                  <p className="text-slate-500">Compromissos e celebrações paroquiais.</p>
+              <div className="flex justify-between items-center mb-10">
+                <div className="space-y-1">
+                  <h2 className="text-4xl font-serif font-black text-blue-900 dark:text-blue-400 tracking-tight">Próximos Eventos</h2>
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">Sua jornada litúrgica em um só lugar.</p>
                 </div>
-                <button 
+                <motion.button 
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => {
                     setEditingAgenda(null);
                     setIsAgendaModalOpen(true);
                   }}
-                  className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                  className="bg-blue-600 text-white p-5 rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all"
                 >
-                  <Plus className="w-6 h-6" />
-                </button>
+                  <Plus className="w-8 h-8" />
+                </motion.button>
               </div>
 
               {upcomingEvents.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Próximos 5 Eventos
+                <div className="space-y-6 mb-16">
+                  <h3 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                    <div className="w-8 h-px bg-blue-600/30" />
+                    STATUS: ATIVO
                   </h3>
-                  <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 scrollbar-hide">
-                    {upcomingEvents.map(item => (
+                  <div className="flex gap-6 overflow-x-auto pb-8 -mx-4 px-4 scrollbar-hide perspective-2000">
+                    {upcomingEvents.map((item, index) => (
                       <motion.div 
                         key={`upcoming-${item.id}`}
-                        whileHover={{ y: -4 }}
+                        initial={{ opacity: 0, x: 50, rotateY: 20 }}
+                        animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                        whileHover={{ 
+                          y: -20, 
+                          rotateX: 5,
+                          rotateY: -5,
+                          z: 100,
+                          scale: 1.05
+                        }}
+                        transition={{ delay: index * 0.1, type: "spring", stiffness: 200, damping: 25 }}
                         onClick={() => {
                           setEditingAgenda(item);
                           setIsAgendaModalOpen(true);
                         }}
-                        className="min-w-[280px] bg-blue-900 text-white p-5 rounded-3xl shadow-xl shadow-blue-200/50 cursor-pointer relative overflow-hidden"
+                        className="min-w-[320px] bg-gradient-to-br from-blue-900 to-indigo-950 text-white p-8 rounded-[3rem] shadow-[0_30px_60px_-20px_rgba(0,0,0,0.4)] cursor-pointer relative overflow-hidden group preserve-3d"
                       >
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                          <Calendar className="w-20 h-20" />
+                        {/* 3D Reflection Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        
+                        <div className="absolute top-[-20%] right-[-10%] opacity-10 blur-2xl group-hover:scale-125 transition-transform duration-700">
+                          <Calendar className="w-48 h-48" />
                         </div>
+
                         <div className="relative z-10">
-                          <span className="text-[10px] font-black opacity-60 uppercase tracking-tighter">
-                            {new Date(item.data).toLocaleDateString('pt-BR', { weekday: 'long' })}
-                          </span>
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-bold text-lg leading-tight line-clamp-1">{item.titulo}</h4>
+                          <div className="flex justify-between items-start mb-6">
+                            <span className="bg-white/10 backdrop-blur-md text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter border border-white/10">
+                              {new Date(item.data).toLocaleDateString('pt-BR', { weekday: 'long' })}
+                            </span>
                             {item.recorrencia && item.recorrencia !== 'unica' && (
-                              <div className="bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                                <RefreshCcw className="w-3 h-3" />
+                              <div className="bg-blue-400/20 p-2 rounded-xl backdrop-blur-xl border border-white/10 shadow-lg">
+                                <RefreshCcw className="w-4 h-4 text-blue-200" />
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center text-xs font-bold bg-white/10 px-2 py-1 rounded-lg w-fit mb-2">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {new Date(item.data).toLocaleTimeString('pt-BR', { timeStyle: 'short' })}
-                          </div>
-                          <div className="flex items-center text-[10px] opacity-80">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {item.local || 'Local não definido'}
+
+                          <h4 className="font-serif font-black text-2xl leading-tight mb-8 line-clamp-2 min-h-[3.5rem] tracking-tight group-hover:text-blue-200 transition-colors">{item.titulo}</h4>
+                          
+                          <div className="space-y-4">
+                            <div className="flex items-center text-sm font-black bg-white/10 backdrop-blur-xl px-4 py-2 rounded-2xl w-fit border border-white/5">
+                              <Clock className="w-4 h-4 mr-2 text-blue-300" />
+                              {new Date(item.data).toLocaleTimeString('pt-BR', { timeStyle: 'short' })}
+                            </div>
+                            <div className="flex items-center text-[11px] font-bold opacity-60">
+                              <MapPin className="w-4 h-4 mr-2 text-indigo-400" />
+                              {item.local || 'Santuário Matriz'}
+                            </div>
                           </div>
                         </div>
                       </motion.div>
@@ -1663,122 +1734,116 @@ export default function App() {
               )}
 
               <div className="space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Todos os Compromissos
-                </h3>
-                {agenda.length === 0 ? (
-                  <div className="text-center py-20 bg-white rounded-3xl border border-slate-200">
-                    <Calendar className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                    <p className="text-slate-400 font-medium font-serif text-lg">Sua agenda está vazia</p>
-                  </div>
-                ) : (
-                  agenda.map(originalItem => {
-                    let effectiveData = originalItem.data;
-                    if (originalItem.recorrencia && originalItem.recorrencia !== 'unica') {
-                      const now = new Date();
-                      let current = new Date(originalItem.data);
-                      while (current.getTime() < now.getTime() - (12 * 60 * 60 * 1000)) {
-                        if (originalItem.recorrencia === 'mensal') current.setMonth(current.getMonth() + 1);
-                        else if (originalItem.recorrencia === 'anual') current.setFullYear(current.getFullYear() + 1);
-                        else break;
-                      }
-                      effectiveData = current.toISOString();
-                    }
-                    const item = { ...originalItem, data: effectiveData };
-                    const eventDate = new Date(item.data);
-                    const isValidDate = !isNaN(eventDate.getTime());
-
-                    return (
-                      <div key={item.id} className="bg-white dark:bg-dark-surface p-5 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100 dark:border-dark-border hover:shadow-md transition-shadow">
-                        <div 
-                          className="cursor-pointer flex-1"
-                          onClick={() => {
-                            setEditingAgenda(originalItem);
-                            setSelectedCantosForAgenda(originalItem.cantosIds || []);
-                            setIsAgendaModalOpen(true);
-                          }}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-xl text-blue-900 dark:text-blue-400 leading-tight">{item.titulo}</h4>
-                            {originalItem.recorrencia && originalItem.recorrencia !== 'unica' && (
-                              <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <RefreshCcw className="w-2.5 h-2.5" />
-                                {originalItem.recorrencia === 'mensal' ? 'Mensal' : 'Anual'}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-4 mt-2">
-                            <div className="flex items-center text-xs text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg">
-                              <MapPin className="w-3 h-3 mr-1" />
-                              {item.local || 'Local não definido'}
-                            </div>
-                            <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 font-mono">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {isValidDate ? eventDate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data inválida'}
-                            </div>
-                          </div>
-                        </div>
-                          <div className="flex gap-2">
-
-                         <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            exportFolhetoAsPDF(item);
-                          }}
-                          className={`p-2 rounded-xl transition-all ${item.cantosIds?.length ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-slate-300'}`}
-                          title="Gerar PDF do Folheto"
-                        >
-                          <Download className="w-5 h-5" />
-                        </button>
-                         <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (item.cantosIds && item.cantosIds.length > 0) {
-                              setReadingAgenda(item);
-                              setReadingIndex(0);
-                              setReadingCanto(null); // Clear direct canto if using agenda
-                              setKeyOffset(0);
-                              setIsReadingModeOpen(true);
-                            } else {
-                              alert('Nenhuma música vinculada a este evento. Edite o evento para adicionar músicas.');
-                            }
-                          }}
-                          className={`p-2 rounded-xl transition-all ${item.cantosIds?.length ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-slate-300'}`}
-                          title="Abrir Folheto da Missa"
-                        >
-                          <BookOpen className="w-5 h-5" />
-                        </button>
-                         <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingAgenda(item);
-                            setSelectedCantosForAgenda(item.cantosIds || []);
-                            setIsAgendaModalOpen(true);
-                          }}
-                          className="p-2 text-slate-300 hover:text-blue-500"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteAgenda(item.id);
-                          }}
-                          className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                          title="Excluir Compromisso"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
+                  <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em] flex items-center gap-3">
+                    <div className="w-8 h-px bg-slate-300 dark:bg-slate-800" />
+                    HISTÓRICO COMPLETO
+                  </h3>
+                  {agenda.length === 0 ? (
+                    <div className="text-center py-20 bg-white/50 backdrop-blur-xl rounded-[3rem] border border-dashed border-slate-200 dark:border-dark-border">
+                      <Calendar className="w-16 h-16 text-slate-200 dark:text-slate-800 mx-auto mb-4" />
+                      <p className="text-slate-400 dark:text-slate-600 font-black font-serif text-lg">Sua agenda está vazia</p>
                     </div>
-                  );
-                })
-              )}
+                  ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      {agenda.map(originalItem => {
+                        let effectiveData = originalItem.data;
+                        if (originalItem.recorrencia && originalItem.recorrencia !== 'unica') {
+                          const now = new Date();
+                          let current = new Date(originalItem.data);
+                          while (current.getTime() < now.getTime() - (12 * 60 * 60 * 1000)) {
+                            if (originalItem.recorrencia === 'mensal') current.setMonth(current.getMonth() + 1);
+                            else if (originalItem.recorrencia === 'anual') current.setFullYear(current.getFullYear() + 1);
+                            else break;
+                          }
+                          effectiveData = current.toISOString();
+                        }
+                        const item = { ...originalItem, data: effectiveData };
+                        const eventDate = new Date(item.data);
+                        const isValidDate = !isNaN(eventDate.getTime());
+
+                        return (
+                          <motion.div 
+                            key={item.id} 
+                            whileHover={{ scale: 1.02, x: 10, translateZ: 10 }}
+                            className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-xl p-6 rounded-[2rem] flex flex-col sm:flex-row justify-between items-start sm:items-center shadow-[0_10px_30px_-10px_rgba(0,0,0,0.05)] border border-white dark:border-white/5 hover:shadow-2xl transition-all group"
+                          >
+                            <div 
+                              className="cursor-pointer flex-1 w-full"
+                              onClick={() => {
+                                setEditingAgenda(originalItem);
+                                setSelectedCantosForAgenda(originalItem.cantosIds || []);
+                                setIsAgendaModalOpen(true);
+                              }}
+                            >
+                              <div className="flex flex-wrap items-center gap-3 mb-2">
+                                <h4 className="font-serif font-black text-2xl text-slate-900 dark:text-white leading-none group-hover:text-blue-600 transition-colors uppercase italic">{item.titulo}</h4>
+                                {originalItem.recorrencia && originalItem.recorrencia !== 'unica' && (
+                                  <span className="bg-blue-600 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full flex items-center gap-2 shadow-lg shadow-blue-600/20">
+                                    <RefreshCcw className="w-3 h-3" />
+                                    {originalItem.recorrencia === 'mensal' ? 'Mensal' : 'Anual'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-4 mt-4">
+                                <div className="flex items-center text-[10px] text-blue-600 dark:text-blue-400 font-black bg-blue-50 dark:bg-blue-900/40 px-4 py-1.5 rounded-full border border-blue-100 dark:border-blue-900 shadow-inner">
+                                  <MapPin className="w-3.5 h-3.5 mr-2" />
+                                  {item.local || 'Paróquia'}
+                                </div>
+                                <div className="flex items-center text-[10px] text-slate-400 dark:text-slate-500 font-bold bg-slate-50 dark:bg-dark-bg px-4 py-1.5 rounded-full shadow-inner">
+                                  <Clock className="w-3.5 h-3.5 mr-2" />
+                                  {isValidDate ? eventDate.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data inválida'}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2 mt-6 sm:mt-0 w-full sm:w-auto">
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  exportFolhetoAsPDF(item);
+                                }}
+                                className={`flex-1 sm:flex-none p-4 rounded-2xl transition-all shadow-sm ${item.cantosIds?.length ? 'bg-blue-600 text-white hover:scale-110' : 'bg-slate-100 text-slate-300 dark:bg-slate-800'}`}
+                                title="Download"
+                                disabled={!item.cantosIds?.length}
+                              >
+                                <Download className="w-5 h-5 mx-auto" />
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (item.cantosIds && item.cantosIds.length > 0) {
+                                    setReadingAgenda(item);
+                                    setReadingIndex(0);
+                                    setReadingCanto(null);
+                                    setKeyOffset(0);
+                                    setIsReadingModeOpen(true);
+                                  }
+                                }}
+                                className={`flex-1 sm:flex-none p-4 rounded-2xl transition-all shadow-sm ${item.cantosIds?.length ? 'bg-emerald-600 text-white hover:scale-110' : 'bg-slate-100 text-slate-300 dark:bg-slate-800'}`}
+                                title="Abrir"
+                                disabled={!item.cantosIds?.length}
+                              >
+                                <BookOpen className="w-5 h-5 mx-auto" />
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAgenda(item.id);
+                                }}
+                                className="flex-1 sm:flex-none p-4 bg-red-50 dark:bg-red-900/20 text-red-400 hover:bg-red-600 hover:text-white rounded-2xl transition-all hover:scale-110 shadow-sm"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-5 h-5 mx-auto" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
             </div>
             </motion.section>
           )}
@@ -1792,48 +1857,52 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-3xl font-serif font-bold text-blue-900 dark:text-blue-400">Músicas Litúrgicas</h2>
-                  <p className="text-slate-500 dark:text-slate-400">Mantenha seu repertório organizado.</p>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 px-2">
+                <div className="space-y-1">
+                  <h2 className="text-4xl font-serif font-black text-blue-900 dark:text-blue-400 tracking-tight">Repertório Musical</h2>
+                  <p className="text-slate-500 dark:text-slate-400 font-medium font-serif italic text-lg opacity-80">Harmonia para cada momento.</p>
                 </div>
-                <div className="flex gap-2">
-                  <button 
+                <div className="flex gap-4">
+                  <motion.button 
+                    whileHover={{ scale: 1.1, rotate: -5, z: 20 }}
+                    whileTap={{ scale: 0.9 }}
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-white dark:bg-dark-surface text-blue-600 p-4 rounded-full shadow-lg hover:bg-blue-50 dark:hover:bg-dark-surface-hover transition-colors border border-blue-100 dark:border-dark-border"
+                    className="bg-white/80 dark:bg-dark-surface/80 text-blue-600 p-5 rounded-[2rem] shadow-xl hover:bg-blue-50 dark:hover:bg-dark-surface-hover transition-all border border-blue-100 dark:border-dark-border"
                     title="Importar Música"
                   >
-                    <Upload className="w-6 h-6" />
-                  </button>
-                  <button 
+                    <Upload className="w-8 h-8" />
+                  </motion.button>
+                  <motion.button 
+                    whileHover={{ scale: 1.1, rotate: 5, z: 20 }}
+                    whileTap={{ scale: 0.9 }}
                     onClick={() => {
                       setEditingCanto(null);
                       setIsCantoModalOpen(true);
                     }}
-                    className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                    className="bg-blue-600 text-white p-5 rounded-[2rem] shadow-[0_20px_40px_-10px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition-all border-t-2 border-white/20"
                   >
-                    <Plus className="w-6 h-6" />
-                  </button>
+                    <Plus className="w-8 h-8" />
+                  </motion.button>
                 </div>
               </div>
 
               {/* Filters */}
-              <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border transition-colors">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <div className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-2xl p-8 rounded-[3rem] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.15)] border border-white dark:border-white/5 transition-all mb-10 translate-z-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
                     <input 
                       type="text" 
                       placeholder="Buscar por título ou letra..." 
                       value={searchCanto}
                       onChange={(e) => setSearchCanto(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all dark:text-white dark:placeholder:text-slate-600"
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-sm transition-all dark:text-white dark:placeholder:text-slate-600 shadow-inner"
                     />
                   </div>
                   <select 
                     value={filterMoment}
                     onChange={(e) => setFilterMoment(e.target.value)}
-                    className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer dark:text-white"
+                    className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-sm cursor-pointer dark:text-white shadow-inner appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTkgOWwtNyA3LTctNyIvPjwvc3ZnPg==')] bg-[length:20px] bg-[right_1rem_center] bg-no-repeat"
                   >
                     <option value="todos">Todos os Momentos</option>
                     {categorias.map(cat => (
@@ -1843,7 +1912,7 @@ export default function App() {
                   <select 
                     value={filterYear}
                     onChange={(e) => setFilterYear(e.target.value)}
-                    className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer dark:text-white"
+                    className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-sm cursor-pointer dark:text-white shadow-inner appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTkgOWwtNyA3LTctNyIvPjwvc3ZnPg==')] bg-[length:20px] bg-[right_1rem_center] bg-no-repeat"
                   >
                     <option value="todos">Todos os Anos</option>
                     <option value="A">Ano A</option>
@@ -1854,7 +1923,7 @@ export default function App() {
                   <select 
                     value={filterSeason}
                     onChange={(e) => setFilterSeason(e.target.value)}
-                    className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer dark:text-white"
+                    className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-sm cursor-pointer dark:text-white shadow-inner appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTkgOWwtNyA3LTctNyIvPjwvc3ZnPg==')] bg-[length:20px] bg-[right_1rem_center] bg-no-repeat"
                   >
                     <option value="todos">Todos os Tempos</option>
                     {temposLiturgicos.map(season => (
@@ -1871,98 +1940,107 @@ export default function App() {
                     <p className="text-slate-400 dark:text-slate-600 font-medium font-serif text-lg">Nenhuma música encontrada</p>
                   </div>
                 ) : (
-                  filteredCantos.map(canto => (
-                    <div key={canto.id} className="group bg-white dark:bg-dark-surface p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col justify-between hover:shadow-xl hover:border-blue-100 dark:hover:border-blue-900 transition-all">
-                      <div>
-                        <div className="flex justify-between items-start mb-4">
+                  filteredCantos.map((canto, index) => (
+                    <motion.div 
+                      key={canto.id}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ 
+                        scale: 1.02, 
+                        y: -10,
+                        rotateX: 2,
+                        rotateY: -2,
+                        z: 20
+                      }}
+                      transition={{ 
+                        type: "spring", 
+                        stiffness: 400, 
+                        damping: 25,
+                        delay: index * 0.05 
+                      }}
+                      className="group bg-white dark:bg-dark-surface p-8 rounded-[3rem] shadow-[0_15px_40px_-20px_rgba(0,0,0,0.1)] border border-slate-100 dark:border-dark-border flex flex-col justify-between hover:shadow-[0_30px_70px_-15px_rgba(37,99,235,0.25)] dark:hover:shadow-[0_30px_70px_-15px_rgba(0,0,0,0.6)] transition-all cursor-pointer relative overflow-hidden h-full preserve-3d"
+                      onClick={() => {
+                        setReadingCanto(canto);
+                        setReadingAgenda(null);
+                        setKeyOffset(0);
+                        setIsReadingModeOpen(true);
+                      }}
+                    >
+                      {/* Depth Shine */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                      
+                      <div className="relative z-10 flex flex-col h-full">
+                        <div className="flex justify-between items-start mb-6">
                           <div className="flex flex-wrap gap-2">
-                             <span className="bg-blue-900 dark:bg-blue-800 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
+                             <span className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-md">
                                {canto.ano} | {canto.tipo}
                              </span>
-                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter text-white shadow-sm
+                             <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter text-white shadow-md
                                ${temposLiturgicos.find(s => s.id === canto.season)?.color || 'bg-slate-400'}`}>
                                {canto.season}
                              </span>
                              {canto.tom && (
-                               <span className="bg-amber-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
+                               <span className="bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-md">
                                  TOM: {String(canto.tom).toUpperCase()}
                                </span>
                              )}
-                             {canto.bpm && (
-                               <span className="bg-slate-700 dark:bg-slate-800 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
-                                 {canto.bpm} BPM
-                               </span>
-                             )}
-                             {canto.compasso && (
-                               <span className="bg-slate-500 dark:bg-slate-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-sm">
-                                 {canto.compasso}
-                               </span>
-                             )}
                           </div>
-                          <div className="flex gap-1 text-slate-300 dark:text-slate-700 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                exportCantoAsPDF(canto);
-                              }}
-                              className="p-2 hover:text-red-500 transition-colors"
-                              title="Exportar PDF"
-                            >
-                              <FileText className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                exportCantoAsJSON(canto);
-                              }}
-                              className="p-2 hover:text-purple-500 transition-colors"
-                              title="Exportar JSON"
-                            >
-                              <FileJson className="w-4 h-4" />
-                            </button>
-                            <button 
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingCanto(canto);
-                                setIsCantoModalOpen(true);
-                              }}
-                              className="p-2 hover:text-blue-600 dark:hover:text-blue-400"
-                              title="Editar"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button 
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCanto(canto.id);
-                              }}
-                              className="p-2 hover:text-red-500 transition-colors"
-                              title="Excluir Música"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div className="flex gap-1 text-slate-300 dark:text-slate-600">
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 exportCantoAsPDF(canto);
+                               }}
+                               className="p-2 hover:text-red-500 transition-all hover:scale-125"
+                               title="PDF"
+                             >
+                               <FileText className="w-5 h-5" />
+                             </button>
+                             <button 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleDeleteCanto(canto.id);
+                               }}
+                               className="p-2 hover:text-red-600 transition-all hover:scale-125"
+                               title="Excluir"
+                             >
+                               <Trash2 className="w-5 h-5" />
+                             </button>
                           </div>
                         </div>
-                        <h4 className="font-bold text-slate-800 dark:text-white text-2xl leading-tight mb-3 font-serif">{canto.nome}</h4>
-                        <p className="text-sm text-slate-400 dark:text-slate-500 line-clamp-3 mb-6 italic leading-relaxed">
+                        
+                        <h4 className="font-bold text-slate-800 dark:text-white text-2xl leading-tight mb-4 font-serif group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors whitespace-nowrap overflow-hidden text-ellipsis">{canto.nome}</h4>
+                        
+                        <p className="text-sm text-slate-400 dark:text-slate-500 line-clamp-3 mb-8 italic leading-relaxed opacity-70 group-hover:opacity-100 transition-opacity">
                           {canto.letra}
                         </p>
+
+                        <div className="mt-auto pt-6 border-t border-slate-50 dark:border-white/5 flex justify-between items-center">
+                          <div className="flex gap-4">
+                            {canto.bpm && (
+                              <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Ritmo</span>
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                  {canto.bpm} BPM
+                                </span>
+                              </div>
+                            )}
+                            {canto.compasso && (
+                              <div className="flex flex-col">
+                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Compasso</span>
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                                  {canto.compasso}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 shadow-inner group-hover:shadow-[0_10px_25px_rgba(37,99,235,0.4)] translate-z-20">
+                            <ChevronRight className="w-7 h-7" />
+                          </div>
+                        </div>
                       </div>
-                      <button 
-                        onClick={() => {
-                          setReadingCanto(canto);
-                          setReadingAgenda(null); // Clear agenda if reading individual song
-                          setKeyOffset(0); // Reset transpose when opening new song
-                          setIsReadingModeOpen(true);
-                        }}
-                        className="w-full bg-blue-50 dark:bg-dark-bg text-blue-900 dark:text-blue-300 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-900 dark:hover:bg-blue-800 hover:text-white transition-all transform active:scale-95"
-                      >
-                        <BookOpen className="w-5 h-5" /> 
-                        MODO LEITURA
-                      </button>
-                    </div>
+                    </motion.div>
                   ))
                 )}
               </div>
@@ -1978,34 +2056,44 @@ export default function App() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <div className="flex flex-col gap-2">
-                <h2 className="text-3xl font-serif font-bold text-blue-900 dark:text-blue-400">Configurações</h2>
-                <p className="text-slate-500 dark:text-slate-400">Personalize a aparência e nomenclaturas do sistema.</p>
+              <div className="flex flex-col gap-2 mb-10 px-2">
+                <h2 className="text-4xl font-serif font-black text-blue-900 dark:text-blue-400 tracking-tight">Configurações</h2>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">Personalize sua experiência digital.</p>
               </div>
 
-              {/* THEME TOGGLE */}
-              <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-dark-bg flex items-center justify-center text-slate-600 dark:text-slate-300">
-                    {isDarkMode ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
+              {/* THEME TOGGLE - 3D Card */}
+              <motion.div 
+                whileHover={{ y: -5, translateZ: 20 }}
+                className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-white dark:border-white/5 flex items-center justify-between group preserve-3d"
+              >
+                <div className="flex items-center gap-6">
+                  <div className={`w-16 h-16 rounded-[1.5rem] ${isDarkMode ? 'bg-indigo-950' : 'bg-amber-100'} flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-12 shadow-inner`}>
+                    {isDarkMode ? <Moon className="w-8 h-8 text-indigo-400" /> : <Sun className="w-8 h-8 text-amber-600" />}
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-800 dark:text-white">Aparência do Sistema</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {isDarkMode ? 'Modo Escuro Ativado' : 'Modo Claro Ativado'}
+                    <h4 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Aparência</h4>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1 italic">
+                      {isDarkMode ? 'MODO NOTURNO ATIVO' : 'MODO DIURNO ATIVO'}
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setIsDarkMode(!isDarkMode)}
-                  className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 ${isDarkMode ? 'bg-blue-600' : 'bg-slate-200'}`}
+                  className={`w-20 h-10 rounded-full p-1.5 transition-all duration-500 relative flex items-center ${isDarkMode ? 'bg-blue-600 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' : 'bg-slate-200 shadow-inner'}`}
                 >
-                  <div className={`w-6 h-6 bg-white rounded-full transition-transform duration-300 shadow-md ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                  <motion.div 
+                    animate={{ x: isDarkMode ? 40 : 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="w-7 h-7 bg-white rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.2)]" 
+                  />
                 </button>
-              </div>
+              </motion.div>
 
-              <div className="bg-white dark:bg-dark-surface p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4">Outras Eventualidades</h3>
+              <div className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-xl p-10 rounded-[4rem] shadow-[0_30px_60px_-20px_rgba(0,0,0,0.1)] border border-white dark:border-white/5">
+                <div className="flex items-center gap-3 mb-8">
+                  <h3 className="text-2xl font-black text-slate-800 dark:text-white leading-none">Eventualidades</h3>
+                  <div className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
+                </div>
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!user) return;
@@ -2030,41 +2118,55 @@ export default function App() {
                       handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
                     }
                   }
-                }} className="space-y-4 mb-8 bg-slate-50 dark:bg-dark-bg p-6 rounded-2xl border border-slate-100 dark:border-dark-border">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input 
-                      name="nome"
-                      type="text" 
-                      placeholder="Nome da eventualidade (ex: Hino de Padroeiros)" 
-                      className="flex-1 p-4 border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-bg dark:text-white"
-                      required
-                    />
-                    <input 
-                      name="descricao"
-                      type="text" 
-                      placeholder="Breve descrição" 
-                      className="flex-1 p-4 border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-dark-bg dark:text-white"
-                    />
+                }} className="space-y-6 mb-12 bg-slate-50/50 dark:bg-dark-bg/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-inner">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Nome da Eventualidade</label>
+                       <input 
+                         name="nome"
+                         type="text" 
+                         placeholder="Ex: Hino de Padroeiros" 
+                         className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 shadow-sm dark:text-white"
+                         required
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Breve Descrição</label>
+                       <input 
+                         name="descricao"
+                         type="text" 
+                         placeholder="Descreva o uso..." 
+                         className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 shadow-sm dark:text-white"
+                       />
+                    </div>
                   </div>
-                  <button type="submit" className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit" 
+                    className="w-full sm:w-auto bg-blue-600 text-white px-10 py-5 rounded-2xl font-black shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+                  >
                     <Plus className="w-5 h-5" />
-                    Adicionar Eventualidade
-                  </button>
+                    Adicionar Registro
+                  </motion.button>
                 </form>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {temposLiturgicos.map(s => (
-                    <div key={s.id} className="flex items-center justify-between gap-2 bg-slate-50 dark:bg-dark-bg p-4 rounded-2xl border border-slate-200 dark:border-dark-border">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 ${s.color} text-white rounded-xl flex items-center justify-center shadow-lg`}>
+                    <motion.div 
+                      key={s.id} 
+                      whileHover={{ x: 5 }}
+                      className="flex items-center justify-between gap-4 bg-white/50 dark:bg-dark-bg/50 p-5 rounded-[2rem] border border-slate-100 dark:border-white/5 shadow-sm hover:shadow-md transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-14 h-14 ${s.color} text-white rounded-2xl flex items-center justify-center shadow-lg transform transition-transform group-hover:rotate-12`}>
                           {getSeasonIcon(s.id)}
                         </div>
                         <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-300 block">{s.label}</span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{s.description}</span>
+                          <span className="font-black text-slate-800 dark:text-slate-200 block text-lg leading-tight uppercase italic">{s.label}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-tighter opacity-60">{s.description}</span>
                         </div>
                       </div>
-                      {/* Original seasons cannot be deleted, so hide the button */}
                       {!INITIAL_SEASONS.find(orig => orig.id === s.id) && (
                         <button 
                           type="button"
@@ -2074,18 +2176,17 @@ export default function App() {
                             const updated = temposLiturgicos.filter(x => x.id !== s.id);
                             try {
                               await updateDoc(doc(db, 'users', user.uid), { temposLiturgicos: updated });
-                              showNotification(`Eventualidade "${s.label}" removida.`, 'info');
+                              showNotification(`Equipamento "${s.label}" removido.`, 'info');
                             } catch (err) {
                               handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
                             }
                           }}
-                          className="text-red-400 dark:text-red-900/60 hover:text-red-600 dark:hover:text-red-400 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
-                          title="Excluir Eventualidade"
+                          className="text-red-400 hover:text-red-600 p-3 bg-red-50 dark:bg-red-900/10 rounded-xl transition-all"
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
                       )}
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
@@ -2242,7 +2343,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* FIXED CLOSE BUTTON - Compact */}
                   <button 
                     onClick={() => setIsReadingModeOpen(false)}
                     className="fixed top-3 left-3 sm:top-4 sm:left-4 z-[200] bg-white dark:bg-dark-surface shadow-xl p-2 sm:p-2.5 rounded-full text-slate-800 dark:text-white hover:bg-slate-100 dark:hover:bg-dark-surface-hover hover:text-blue-600 dark:hover:text-blue-400 transition-all border border-slate-200 dark:border-dark-border active:scale-90 flex items-center justify-center group"
@@ -2251,47 +2351,64 @@ export default function App() {
                     <X className="w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-90 transition-transform duration-300" />
                   </button>
                   
-                  {/* Cifra Display Area */}
-                  <div 
-                    className="flex-1 whitespace-pre text-slate-800 dark:text-slate-200 pb-64 font-mono tracking-normal overflow-x-auto selection:bg-blue-100 dark:selection:bg-blue-900/40"
-                    style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
-                  >
-                    {/* Add extra padding at the top to start below the sticky header gap */}
-                    <div className="pt-4 min-w-max px-4">
-                      {/* Sub-label for key if transposed */}
-                      {keyOffset !== 0 && (
-                        <div className="mb-6 inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800 text-sm font-bold text-blue-700 dark:text-blue-300">
-                          <span>Tom atual:</span>
-                          <span className="bg-white dark:bg-dark-surface px-2 py-0.5 rounded-lg shadow-sm border border-blue-200 dark:border-blue-800">{currentKey}</span>
-                        </div>
-                      )}
-                      {formattedLetra}
-                    </div>
+                  {/* Cifra Display Area with 3D Stand Effect */}
+                  <div className="max-w-4xl mx-auto w-full relative mb-64 px-4 sm:px-0 mt-8">
+                    <motion.div 
+                      initial={{ scale: 0.95, y: 50, rotateX: 10 }}
+                      animate={{ scale: 1, y: 0, rotateX: 0 }}
+                      className="bg-white dark:bg-dark-surface min-h-[80vh] p-8 sm:p-16 rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] border border-white dark:border-white/5 relative z-10 perspective-1000 overflow-hidden"
+                    >
+                      {/* Paper Texture Overlay */}
+                      <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-multiply bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
+                      
+                      <div 
+                        className="whitespace-pre text-slate-800 dark:text-slate-100 font-mono tracking-normal relative z-20"
+                        style={{ fontSize: `${fontSize}px`, lineHeight: '2' }}
+                      >
+                         {/* Labels if transposed */}
+                         {keyOffset !== 0 && (
+                          <div className="mb-10 inline-flex items-center gap-3 bg-blue-600 text-white px-6 py-2.5 rounded-2xl shadow-xl shadow-blue-600/30 font-black text-sm uppercase tracking-widest translate-z-30">
+                            <span className="opacity-50">TOM:</span>
+                            <span>{currentKey}</span>
+                          </div>
+                        )}
+                        {formattedLetra}
+                      </div>
+                    </motion.div>
+                    
+                    {/* 3D Base/Stand Effect */}
+                    <div className="absolute -bottom-8 left-10 right-10 h-20 bg-slate-200 dark:bg-slate-900 rounded-[3rem] blur-xl opacity-50 -z-10" />
                   </div>
 
                   {/* Floating Action Center (Top Right) - Consolidated into 1st Menu */}
-                  <div className="fixed right-1 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 sm:top-24 sm:translate-y-0 bottom-40 sm:bottom-32 flex flex-col items-end gap-2 sm:gap-4 z-[140]">
-                    <button 
+                  <div className="fixed right-1 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 sm:top-24 sm:translate-y-0 bottom-40 sm:bottom-32 flex flex-col items-end gap-2 sm:gap-4 z-[140] perspective-1000">
+                    <motion.button 
+                      whileHover={{ scale: 1.1, rotate: 10, z: 50 }}
+                      whileTap={{ scale: 0.9 }}
                       onClick={() => setShowFloatingMenu(!showFloatingMenu)}
-                      className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-95 pointer-events-auto border-2 ${
+                      className={`w-14 h-14 rounded-full flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,0.2)] transition-all pointer-events-auto border-2 ${
                         showFloatingMenu 
                           ? 'bg-red-500 border-red-400 text-white rotate-90' 
                           : 'bg-white border-blue-100 text-blue-600 dark:bg-dark-surface dark:border-dark-border dark:text-blue-400'
                       }`}
                     >
                       {showFloatingMenu ? <X className="w-8 h-8" /> : <Settings className="w-8 h-8" />}
-                    </button>
+                    </motion.button>
 
                     <AnimatePresence>
                       {showFloatingMenu && (
                         <motion.div 
-                          initial={{ opacity: 0, x: 20, scale: 0.9 }}
-                          animate={{ opacity: 1, x: 0, scale: 1 }}
-                          exit={{ opacity: 0, x: 20, scale: 0.9 }}
-                          className="flex flex-col gap-2 sm:gap-3 pointer-events-auto max-h-[70vh] overflow-y-auto no-scrollbar py-2 sm:py-4 px-1"
+                          initial={{ opacity: 0, x: 50, scale: 0.8, rotateY: 30 }}
+                          animate={{ opacity: 1, x: 0, scale: 1, rotateY: 0 }}
+                          exit={{ opacity: 0, x: 50, scale: 0.8, rotateY: 30 }}
+                          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                          className="flex flex-col gap-2 sm:gap-3 pointer-events-auto max-h-[70vh] overflow-y-auto no-scrollbar py-2 sm:py-4 px-1 preserve-3d"
                         >
                           {/* Auto-Scroll Controls */}
-                          <div className="flex flex-col items-center bg-white/95 dark:bg-dark-surface/95 backdrop-blur-xl rounded-full p-1.5 border border-emerald-100 dark:border-emerald-900/50 shadow-xl">
+                          <motion.div 
+                            whileHover={{ scale: 1.05, translateZ: 20 }}
+                            className="flex flex-col items-center bg-white/40 dark:bg-dark-surface/40 backdrop-blur-2xl rounded-full p-1.5 border border-white/50 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
+                          >
                             <button 
                               onClick={() => setIsAutoScrolling(!isAutoScrolling)}
                               className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90
@@ -2314,10 +2431,13 @@ export default function App() {
                                 ))}
                               </select>
                             </div>
-                          </div>
+                          </motion.div>
 
                           {/* Transposition */}
-                          <div className="flex flex-col items-center bg-white/95 dark:bg-dark-surface/95 backdrop-blur-xl rounded-[2rem] p-1.5 border border-blue-100 dark:border-blue-900/50 shadow-xl">
+                          <motion.div 
+                            whileHover={{ scale: 1.05, translateZ: 20 }}
+                            className="flex flex-col items-center bg-white/40 dark:bg-dark-surface/40 backdrop-blur-2xl rounded-[2rem] p-1.5 border border-white/50 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
+                          >
                             <button 
                               onClick={() => setKeyOffset(prev => prev + 1)}
                               className="w-11 h-11 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all shadow-md active:scale-90"
@@ -2375,10 +2495,13 @@ export default function App() {
                                 </button>
                               </div>
                             )}
-                          </div>
+                          </motion.div>
 
                           {/* Zoom & Display */}
-                          <div className="flex flex-col items-center bg-white/95 dark:bg-dark-surface/95 backdrop-blur-xl rounded-[2rem] p-2 border border-slate-100 dark:border-dark-border shadow-xl">
+                          <motion.div 
+                            whileHover={{ scale: 1.05, translateZ: 20 }}
+                            className="flex flex-col items-center bg-white/40 dark:bg-dark-surface/40 backdrop-blur-2xl rounded-[2rem] p-2 border border-white/50 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.1)]"
+                          >
                             <button 
                               onClick={() => {
                                 setEditingCanto(currentCanto);
@@ -2406,7 +2529,7 @@ export default function App() {
                               <FileJson className="w-5 h-5" />
                             </button>
                             
-                            <div className="h-px w-8 bg-slate-100 dark:bg-dark-border mb-2" />
+                            <div className="h-px w-8 bg-slate-100/50 dark:bg-white/10 mb-2" />
                             
                             <button 
                               onClick={() => setShowChords(!showChords)}
@@ -2416,7 +2539,7 @@ export default function App() {
                             >
                               <Music className="w-5 h-5" />
                             </button>
-                            <div className="h-px w-8 bg-slate-100 mb-2" />
+                            <div className="h-px w-8 bg-slate-100/50 dark:bg-white/10 mb-2" />
                             <button 
                               onClick={() => setFontSize(prev => Math.min(prev + 4, 60))}
                               className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
@@ -2431,7 +2554,7 @@ export default function App() {
                             >
                               <Minus className="w-5 h-5" />
                             </button>
-                          </div>
+                          </motion.div>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -2485,64 +2608,86 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* MODALS AND PICKERS */}
       <AnimatePresence>
         {isAgendaModalOpen && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[80] backdrop-blur-md">
+          <div className="fixed inset-0 bg-indigo-950/40 flex items-center justify-center p-4 z-[200] backdrop-blur-2xl px-6">
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-dark-surface rounded-[2.5rem] w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+              initial={{ scale: 0.8, opacity: 0, rotateX: -20 }}
+              animate={{ scale: 1, opacity: 1, rotateX: 0 }}
+              exit={{ scale: 0.8, opacity: 0, rotateX: -20 }}
+              className="bg-white/95 dark:bg-dark-surface/95 rounded-[4rem] w-full max-w-2xl shadow-[0_50px_100px_rgba(0,0,0,0.5)] border border-white dark:border-white/10 flex flex-col max-h-[90vh] overflow-hidden preserve-3d"
             >
-              <div className="p-8 pb-4 border-b border-slate-50 dark:border-dark-border">
-                <h3 className="text-2xl font-serif font-black text-blue-900 dark:text-blue-400">
-                  {editingAgenda ? 'Editar Evento' : 'Novo Compromisso'}
-                </h3>
+              <div className="p-10 pb-6 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-white/50 dark:bg-dark-surface/50">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em] leading-none">Formulário Digital</span>
+                  <h3 className="text-3xl font-serif font-black text-slate-900 dark:text-white leading-none">
+                    {editingAgenda ? 'Ajustar Evento' : 'Novo Roteiro'}
+                  </h3>
+                </div>
+                <button onClick={() => setIsAgendaModalOpen(false)} className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-dark-bg flex items-center justify-center text-slate-400 hover:text-red-500 transition-all">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
 
-              <div className="p-8 py-6 overflow-y-auto flex-1 custom-scrollbar">
-                <form id="agendaForm" onSubmit={handleSaveAgenda} className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Título do Evento</label>
-                    <input 
-                      name="titulo"
-                      defaultValue={editingAgenda?.titulo}
-                      placeholder="Ex: Missa com Coroinhas" 
-                      className="w-full border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-bg p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium dark:text-white" 
-                      required
-                    />
+              <div className="p-10 py-8 overflow-y-auto flex-1 custom-scrollbar">
+                <form id="agendaForm" onSubmit={handleSaveAgenda} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Resumo do Evento</label>
+                       <div className="relative group">
+                         <div className="absolute inset-0 bg-blue-600/5 group-focus-within:bg-blue-600/10 rounded-3xl transition-colors" />
+                         <input 
+                           name="titulo"
+                           defaultValue={editingAgenda?.titulo}
+                           placeholder="Ex: Missa de Domingo" 
+                           className="w-full bg-transparent p-5 rounded-3xl outline-none focus:ring-2 focus:ring-blue-600/20 font-black text-lg dark:text-white relative z-10 placeholder:opacity-30" 
+                           required
+                         />
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Coordenadas / Local</label>
+                       <div className="relative group">
+                         <div className="absolute inset-0 bg-emerald-600/5 group-focus-within:bg-emerald-600/10 rounded-3xl transition-colors" />
+                         <input 
+                           name="local"
+                           defaultValue={editingAgenda?.local}
+                           placeholder="Ex: Igreja Matriz" 
+                           className="w-full bg-transparent p-5 rounded-3xl outline-none focus:ring-2 focus:ring-emerald-600/20 font-black text-lg dark:text-white relative z-10 placeholder:opacity-30" 
+                         />
+                       </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Local</label>
-                    <input 
-                      name="local"
-                      defaultValue={editingAgenda?.local}
-                      placeholder="Ex: Matriz" 
-                      className="w-full border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-bg p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium dark:text-white" 
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Data e Hora</label>
-                    <input 
-                      name="data"
-                      type="datetime-local" 
-                      defaultValue={editingAgenda?.data}
-                      className="w-full border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-bg p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium dark:text-white" 
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Recorrência</label>
-                    <select 
-                      name="recorrencia" 
-                      defaultValue={editingAgenda?.recorrencia || 'unica'}
-                      className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-white dark:bg-dark-bg dark:text-white"
-                    >
-                      <option value="unica">Evento Único</option>
-                      <option value="mensal">Repetir Mensalmente</option>
-                      <option value="anual">Repetir Anualmente</option>
-                    </select>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Cronometragem</label>
+                       <div className="relative group">
+                         <div className="absolute inset-0 bg-purple-600/5 group-focus-within:bg-purple-600/10 rounded-3xl transition-colors" />
+                         <input 
+                           name="data"
+                           type="datetime-local" 
+                           defaultValue={editingAgenda?.data}
+                           className="w-full bg-transparent p-5 rounded-3xl outline-none focus:ring-2 focus:ring-purple-600/20 font-black text-lg dark:text-white relative z-10" 
+                           required
+                         />
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Frequência</label>
+                       <div className="relative group">
+                         <div className="absolute inset-0 bg-amber-600/5 group-focus-within:bg-amber-600/10 rounded-3xl transition-colors" />
+                         <select 
+                           name="recorrencia" 
+                           defaultValue={editingAgenda?.recorrencia || 'unica'}
+                           className="w-full bg-transparent p-5 rounded-3xl outline-none focus:ring-2 focus:ring-amber-600/20 font-black text-lg dark:text-white relative z-10 appearance-none cursor-pointer"
+                         >
+                           <option value="unica">OCASIÃO ÚNICA</option>
+                           <option value="mensal">CADÊNCIA MENSAL</option>
+                           <option value="anual">CICLO ANUAL</option>
+                         </select>
+                       </div>
+                    </div>
                   </div>
                   <label className="flex items-center gap-3 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                     <input type="checkbox" name="syncGoogle" className="w-5 h-5 accent-blue-600" /> 
