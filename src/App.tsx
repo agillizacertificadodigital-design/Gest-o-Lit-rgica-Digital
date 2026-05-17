@@ -2728,9 +2728,9 @@ export default function App() {
                            defaultValue={editingAgenda?.recorrencia || 'unica'}
                            className="w-full bg-transparent p-5 rounded-3xl outline-none focus:ring-2 focus:ring-amber-600/20 font-black text-lg dark:text-white relative z-10 appearance-none cursor-pointer"
                          >
-                           <option value="unica">OCASIÃO ÚNICA</option>
-                           <option value="mensal">CADÊNCIA MENSAL</option>
-                           <option value="anual">CICLO ANUAL</option>
+                           <option value="unica">Única</option>
+                           <option value="mensal">Mensal</option>
+                           <option value="anual">Anual</option>
                          </select>
                        </div>
                     </div>
@@ -2844,7 +2844,7 @@ export default function App() {
       {/* CANTO PICKER MODAL (FOR AGENDA) */}
       <AnimatePresence>
         {showCantoPicker && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[80] backdrop-blur-xl">
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[250] backdrop-blur-xl">
             <motion.div 
               initial={{ scale: 1.1, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -2852,12 +2852,15 @@ export default function App() {
               className="bg-white dark:bg-dark-surface rounded-[2rem] p-8 w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl border border-slate-200 dark:border-dark-border"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-serif font-black text-blue-900 dark:text-blue-400">Selecionar Música</h3>
+                <div className="flex flex-col">
+                  <h3 className="text-2xl font-serif font-black text-blue-900 dark:text-blue-400 leading-none">Selecionar Músicas</h3>
+                  <span className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">{selectedCantosForAgenda.length} selecionada(s)</span>
+                </div>
                 <button 
                   onClick={() => setShowCantoPicker(false)}
-                  className="bg-slate-100 dark:bg-dark-bg p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dark-bg/60"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-blue-700 transition-all"
                 >
-                  <X className="w-6 h-6" />
+                  Concluir
                 </button>
               </div>
               
@@ -2881,9 +2884,12 @@ export default function App() {
                       key={canto.id}
                       onClick={() => {
                         setSelectedCantosForAgenda(prev => [...prev, canto.id]);
-                        setShowCantoPicker(false);
+                        showNotification(`${canto.nome} adicionada.`, 'info');
                       }}
-                      className="w-full text-left p-4 rounded-2xl bg-white dark:bg-dark-bg border border-slate-100 dark:border-dark-border hover:border-blue-300 dark:hover:border-blue-800 hover:shadow-md transition-all flex justify-between items-center"
+                      className={`w-full text-left p-4 rounded-2xl bg-white dark:bg-dark-bg border transition-all flex justify-between items-center
+                        ${selectedCantosForAgenda.includes(canto.id) 
+                          ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/10' 
+                          : 'border-slate-100 dark:border-dark-border hover:border-blue-300 dark:hover:border-blue-800'}`}
                     >
                       <div>
                         <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase block mb-0.5">{canto.tipo}</span>
@@ -2894,7 +2900,14 @@ export default function App() {
                           <span className="text-[10px] opacity-40 dark:opacity-60 dark:text-slate-300 uppercase">{canto.season}</span>
                         </div>
                       </div>
-                      <Plus className="w-5 h-5 text-blue-400 dark:text-blue-500" />
+                      <div className="flex items-center gap-2">
+                        {selectedCantosForAgenda.includes(canto.id) && (
+                          <div className="bg-blue-600 text-white p-1 rounded-full">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                        <Plus className="w-5 h-5 text-blue-400 dark:text-blue-500" />
+                      </div>
                     </button>
                   ))
                 )}
