@@ -7,3 +7,5 @@ Sempre que manipular, exibir ou processar cifras musicais neste aplicativo, siga
 3. **Transposição Inteligente**: Ao transpor, calcule os intervalos exatos. Indique sempre o "Novo Tom" no topo.
 4. **Alinhamento e Estrutura**: Preserve o alinhamento dos acordes sobre as sílabas correspondentes. Formate a introdução (INTRO) com espaçamento claro.
 5. **Nomenclatura**: Prefira a nomenclatura internacional de cifras (A, B, C, D, E, F, G).
+6. **Simbologia Especial**: Suporte símbolos como diminished (°, dim), augmented (+, aug), half-diminished (ø) e extensões complexas. No PDF, mantenha a fidelidade desses caracteres.
+7. **Consistência Visual**: Ao transpor ou exportar, garanta que caracteres especiais como "°" sejam renderizados corretamente, sem substituições por caracteres genéricos.

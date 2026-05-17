@@ -320,10 +320,10 @@ export default function App() {
 
     const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
     const map: Record<string, number> = {
-      'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+      'C': 0, 'c': 0, 'C#': 1, 'c#': 1, 'Db': 1, 'db': 1, 'D': 2, 'd': 2, 'D#': 3, 'd#': 3, 'Eb': 3, 'eb': 3, 'E': 4, 'e': 4, 'F': 5, 'f': 5, 'F#': 6, 'f#': 6, 'Gb': 6, 'gb': 6, 'G': 7, 'g': 7, 'G#': 8, 'g#': 8, 'Ab': 8, 'ab': 8, 'A': 9, 'a': 9, 'A#': 10, 'a#': 10, 'Bb': 10, 'bb': 10, 'B': 11, 'b': 11
     };
 
-    const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+    const chordRegex = /(\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
 
     const lines = text.split('\n');
     const transposedLines = lines.map(line => {
@@ -1003,11 +1003,12 @@ export default function App() {
       const lineSpacing = 1.3;
       let lineStep = (fontSizeBody * 0.3527) * lineSpacing; 
 
-      const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const chordRegex = /(\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
       const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
 
+      // Mantém caracteres musicais originais para maior fidelidade
       const ensurePdfSafeChars = (text: string) => {
-        return text.replace(/[ª]/g, 'a').replace(/[º°ø]/g, 'o');
+        return text;
       };
 
       const checkPageBreak = (neededHeight: number) => {
@@ -1210,11 +1211,12 @@ export default function App() {
       const lineSpacing = 1.3;
       let lineStep = (fontSizeBody * 0.3527) * lineSpacing;
 
-      const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const chordRegex = /(\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
       const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
 
+      // Mantém caracteres musicais originais para maior fidelidade
       const ensurePdfSafeChars = (text: string) => {
-        return text.replace(/[ª]/g, 'a').replace(/[º°ø]/g, 'o');
+        return text;
       };
 
       const checkPageBreak = (neededHeight: number) => {
