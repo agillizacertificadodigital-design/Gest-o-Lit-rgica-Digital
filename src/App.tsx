@@ -49,7 +49,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
-import { Canto, AgendaItem, LiturgicalSeason } from './types';
+import { Canto, AgendaItem, LiturgicalSeason, SeasonInfo } from './types';
 import { INITIAL_SEASONS, INITIAL_CATEGORIES, NOTES, NOTE_MAP } from './constants';
 import { auth, db, OperationType, handleFirestoreError } from './lib/firebase';
 import { 
@@ -200,6 +200,7 @@ export default function App() {
   // Modal States
   const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
   const [editingAgenda, setEditingAgenda] = useState<AgendaItem | null>(null);
+  const [editingTempo, setEditingTempo] = useState<SeasonInfo | null>(null);
   
   const [isCantoModalOpen, setIsCantoModalOpen] = useState(false);
   const [editingCanto, setEditingCanto] = useState<Canto | null>(null);
@@ -2094,37 +2095,50 @@ export default function App() {
                   <h3 className="text-2xl font-black text-slate-800 dark:text-white leading-none">Eventualidades</h3>
                   <div className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
                 </div>
-                <form onSubmit={async (e) => {
+                <form id="tempoForm" onSubmit={async (e) => {
                   e.preventDefault();
                   if (!user) return;
-                  const formData = new FormData(e.currentTarget);
+                  const form = e.currentTarget;
+                  const formData = new FormData(form);
                   const nome = formData.get('nome') as string;
                   const desc = formData.get('descricao') as string;
                   if (nome) {
-                    const novo = {
-                      id: nome,
-                      label: nome,
-                      color: 'bg-slate-500',
-                      borderColor: 'border-slate-500',
-                      description: desc || 'Personalizado pelo usuário',
-                      icon: 'music'
-                    };
-                    const updated = [...temposLiturgicos, novo];
+                    let updated: SeasonInfo[];
+                    if (editingTempo) {
+                      updated = temposLiturgicos.map(t => 
+                        t.id === editingTempo.id 
+                          ? { ...t, label: nome, description: desc || 'Personalizado pelo usuário' } 
+                          : t
+                      );
+                    } else {
+                      const novo: SeasonInfo = {
+                        id: `custom-${Date.now()}`,
+                        label: nome,
+                        color: 'bg-slate-500',
+                        borderColor: 'border-slate-500',
+                        description: desc || 'Personalizado pelo usuário',
+                        icon: 'music'
+                      };
+                      updated = [...temposLiturgicos, novo];
+                    }
+                    
                     try {
                       await updateDoc(doc(db, 'users', user.uid), { temposLiturgicos: updated });
-                      showNotification(`Eventualidade "${nome}" adicionada.`, 'success');
-                      e.currentTarget.reset();
+                      showNotification(editingTempo ? `Registro "${nome}" atualizado.` : `Registro "${nome}" adicionado.`, 'success');
+                      setEditingTempo(null);
+                      if (form) form.reset();
                     } catch (err) {
                       handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
                     }
                   }
-                }} className="space-y-6 mb-12 bg-slate-50/50 dark:bg-dark-bg/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-inner">
+                }} className="space-y-6 mb-12 bg-slate-50/50 dark:bg-dark-bg/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-inner" key={editingTempo?.id || 'new-tempo'}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Nome da Eventualidade</label>
                        <input 
                          name="nome"
                          type="text" 
+                         defaultValue={editingTempo?.label || ''}
                          placeholder="Ex: Hino de Padroeiros" 
                          className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 shadow-sm dark:text-white"
                          required
@@ -2135,20 +2149,35 @@ export default function App() {
                        <input 
                          name="descricao"
                          type="text" 
+                         defaultValue={editingTempo?.description || ''}
                          placeholder="Descreva o uso..." 
                          className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 shadow-sm dark:text-white"
                        />
                     </div>
                   </div>
-                  <motion.button 
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="submit" 
-                    className="w-full sm:w-auto bg-blue-600 text-white px-10 py-5 rounded-2xl font-black shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Adicionar Registro
-                  </motion.button>
+                  <div className="flex gap-3">
+                    <motion.button 
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="submit" 
+                      className="flex-1 sm:flex-none bg-blue-600 text-white px-10 py-5 rounded-2xl font-black shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+                    >
+                      {editingTempo ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                      {editingTempo ? 'Salvar Alterações' : 'Adicionar Registro'}
+                    </motion.button>
+                    {editingTempo && (
+                      <motion.button 
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        type="button"
+                        onClick={() => setEditingTempo(null)}
+                        className="flex-1 sm:flex-none bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-10 py-5 rounded-2xl font-black transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+                      >
+                        <X className="w-5 h-5" />
+                        Cancelar
+                      </motion.button>
+                    )}
+                  </div>
                 </form>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2167,25 +2196,42 @@ export default function App() {
                           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-tighter opacity-60">{s.description}</span>
                         </div>
                       </div>
-                      {!INITIAL_SEASONS.find(orig => orig.id === s.id) && (
-                        <button 
-                          type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!user) return;
-                            const updated = temposLiturgicos.filter(x => x.id !== s.id);
-                            try {
-                              await updateDoc(doc(db, 'users', user.uid), { temposLiturgicos: updated });
-                              showNotification(`Equipamento "${s.label}" removido.`, 'info');
-                            } catch (err) {
-                              handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
-                            }
-                          }}
-                          className="text-red-400 hover:text-red-600 p-3 bg-red-50 dark:bg-red-900/10 rounded-xl transition-all"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      )}
+                      <div className="flex gap-2">
+                        {!INITIAL_SEASONS.find(orig => orig.id === s.id) && (
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setEditingTempo(s);
+                              // Scroll to form
+                              document.getElementById('tempoForm')?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="text-blue-400 hover:text-blue-600 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl transition-all"
+                            title="Editar Eventualidade"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                        )}
+                        {!INITIAL_SEASONS.find(orig => orig.id === s.id) && (
+                          <button 
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!user) return;
+                              const updated = temposLiturgicos.filter(x => x.id !== s.id);
+                              try {
+                                await updateDoc(doc(db, 'users', user.uid), { temposLiturgicos: updated });
+                                showNotification(`Equipamento "${s.label}" removido.`, 'info');
+                                if (editingTempo?.id === s.id) setEditingTempo(null);
+                              } catch (err) {
+                                handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+                              }
+                            }}
+                            className="text-red-400 hover:text-red-600 p-3 bg-red-50 dark:bg-red-900/10 rounded-xl transition-all"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
                     </motion.div>
                   ))}
                 </div>
