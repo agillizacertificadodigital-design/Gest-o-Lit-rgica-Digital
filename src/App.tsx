@@ -20,7 +20,6 @@ import {
   ChevronRight,
   ChevronLeft,
   LayoutList,
-  ListMusic,
   Maximize2,
   Minimize2,
   Minus,
@@ -207,6 +206,34 @@ export default function App() {
   
   const [isReadingModeOpen, setIsReadingModeOpen] = useState(false);
   const [isLyricsFullScreen, setIsLyricsFullScreen] = useState(false);
+
+  // Fullscreen API Helper
+  const toggleFullscreen = (enable: boolean) => {
+    try {
+      if (enable) {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(err => {
+            console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+          });
+        }
+      } else {
+        if (document.fullscreenElement) {
+          document.exitFullscreen();
+        }
+      }
+    } catch (e) {
+      console.warn('Fullscreen API not supported');
+    }
+  };
+
+  useEffect(() => {
+    if (isLyricsFullScreen || isReadingModeOpen) {
+      toggleFullscreen(true);
+    } else {
+      toggleFullscreen(false);
+    }
+  }, [isLyricsFullScreen, isReadingModeOpen]);
+
   const [lyricsValue, setLyricsValue] = useState("");
   const [readingCanto, setReadingCanto] = useState<Canto | null>(null);
   const [readingAgenda, setReadingAgenda] = useState<AgendaItem | null>(null);
@@ -222,8 +249,8 @@ export default function App() {
 
   const [fontSize, setFontSize] = useState(20);
   const [keyOffset, setKeyOffset] = useState(0);
-  const [isChordHighlighterActive, setIsChordHighlighterActive] = useState(false);
   const [showChords, setShowChords] = useState(true);
+  const [showFloatingMenu, setShowFloatingMenu] = useState(false);
 
   // Auto-Scroll State
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
@@ -295,68 +322,97 @@ export default function App() {
       'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
     };
 
-    // Enhanced Chord Regex: 
-    // - Case sensitive (uppercase roots A-G)
-    // - Supports symbols like #, b, 7, 9, 13, sus, add, maj, min, etc.
-    // - Supports Portuguese musical notation symbols (ª, º, °)
-    // - Supports optional bass /F#
-    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))/g;
+    const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
 
     const lines = text.split('\n');
     const transposedLines = lines.map(line => {
       const trimmedLine = line.trim();
       if (!trimmedLine) return line;
 
-      // Heuristic to detect if it's a dedicated chord line
+      // Heuristic to detect if it's a dedicated chord/notation line
       const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
-      const chordTokens = tokens.filter(t => {
+      const chordOrNotationTokens = tokens.filter(t => {
         const m = t.match(chordRegex);
         return m && m[0] === t;
       });
-      const nonChordTokens = tokens.filter(t => !chordTokens.includes(t));
+      const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
       
-      // A line is likely a chord line if:
-      // 1. Majority of tokens are chords (>= 60%)
-      // 2. Has chords AND no "long" words that look like actual lyrics (words with 4+ letters)
       const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
       const isActuallyChordLine = tokens.length > 0 && (
-        (chordTokens.length / tokens.length >= 0.6) || 
-        (chordTokens.length > 0 && !hasLongLyrics)
+        (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+        (chordOrNotationTokens.length > 0 && !hasLongLyrics)
       );
 
-      return line.replace(chordRegex, (match) => {
-        // Strict protection for single-letter words in lyrics
-        // 'A' and 'E' are extremely common Portuguese words
-        const isCommonWord = (match === 'A' || match === 'E');
-        if (!isActuallyChordLine && isCommonWord && match.length === 1) {
-          return match;
+      // Perform transposition while attempting to preserve column alignment
+      let resultLine = "";
+      let lastIndex = 0;
+      let lineShift = 0;
+
+      const matches = Array.from(line.matchAll(chordRegex));
+      
+      for (const match of matches) {
+        const fullMatch = match[0];
+        const matchIndex = match.index!;
+        
+        // Add content before the match, adjusted by previous shifts
+        resultLine += line.substring(lastIndex, matchIndex);
+
+        // If it's not a chord (just notation), keep it
+        if (!/^[A-G]/i.test(fullMatch)) {
+          resultLine += fullMatch;
+          lastIndex = matchIndex + fullMatch.length;
+          continue;
         }
 
-        const parts = match.split('/');
-        const mainChord = parts[0];
-        const bass = parts[1];
+        // Protection for common words in non-chord lines
+        const isCommonWord = (fullMatch === 'A' || fullMatch === 'E');
+        if (!isActuallyChordLine && isCommonWord && fullMatch.length === 1) {
+          resultLine += fullMatch;
+          lastIndex = matchIndex + fullMatch.length;
+          continue;
+        }
 
+        // Transpose the chord
         const transposeChordPart = (chord: string) => {
           const rootMatch = chord.match(/^[A-G][#b]?/i);
           if (!rootMatch) return chord;
           const root = rootMatch[0].toUpperCase();
           const rest = chord.slice(root.length);
-          
           let rootIndex = map[root];
           if (rootIndex === undefined) return chord;
-
           let newIndex = (rootIndex + offset) % 12;
           if (newIndex < 0) newIndex += 12;
-
           return notes[newIndex] + rest;
         };
 
-        let result = transposeChordPart(mainChord);
-        if (bass) {
-          result += '/' + transposeChordPart(bass);
+        const parts = fullMatch.split('/');
+        let transposed = transposeChordPart(parts[0]);
+        if (parts[1]) transposed += '/' + transposeChordPart(parts[1]);
+
+        resultLine += transposed;
+        
+        lastIndex = matchIndex + fullMatch.length;
+
+        // Alignment logic: for chord lines, adjust subsequent spaces to keep following chords in their columns
+        if (isActuallyChordLine) {
+          const delta = transposed.length - fullMatch.length;
+          if (delta > 0) {
+            // New chord is longer, try to consume spaces after it to maintain alignment
+            let spacesToConsume = delta;
+            while (spacesToConsume > 0 && lastIndex < line.length && line[lastIndex] === ' ') {
+              lastIndex++;
+              spacesToConsume--;
+            }
+          } else if (delta < 0) {
+            // New chord is shorter, add spaces after it to maintain alignment
+            resultLine += ' '.repeat(Math.abs(delta));
+          }
         }
-        return result;
-      });
+      }
+
+      // Add remaining portion of the line
+      resultLine += line.substring(lastIndex);
+      return resultLine;
     });
 
     return transposedLines.join('\n');
@@ -370,11 +426,11 @@ export default function App() {
   const formattedLetra = useMemo(() => {
     if (!transposedLetra) return null;
     
-    // Synchronized Chord Regex with transposition logic
-    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))/g;
+    // Synchronized Chord and Notation Regex with transposition logic
+    const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
     
-    // Section markers like [Chorus], (Verso), etc.
-    const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão)(.*)(\]|\))$/i;
+    // Section markers like [Chorus], (Verso), [Primeira Parte], etc.
+    const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
 
     const lines = transposedLetra.split('\n');
 
@@ -382,34 +438,34 @@ export default function App() {
       const trimmedLine = line.trim();
       
       // 1. Detect and style Section Headers
-      if (trimmedLine && sectionRegex.test(trimmedLine)) {
+      if (trimmedLine && (trimmedLine.startsWith('[') || sectionRegex.test(trimmedLine))) {
+        const headerText = trimmedLine.startsWith('[') ? trimmedLine : `[${trimmedLine}]`;
         return (
           <div 
             key={`section-${lineIdx}`} 
-            className="text-emerald-700 dark:text-emerald-400 font-black text-xs uppercase tracking-[0.3em] mt-12 mb-6 border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-r-xl first:mt-0 shadow-sm"
+            className="text-slate-900 dark:text-white font-bold text-lg mt-10 mb-5 flex items-center gap-3 border-b border-slate-100 dark:border-dark-border pb-2"
           >
-            {line}
+            <span className="text-blue-500">#</span>
+            {headerText}
           </div>
         );
       }
 
-      // A line is likely a chord line if most of its content matches chord patterns
-      // or has few non-chord tokens.
+      // Heuristic: High chord/notation density, or no long words typically found in lyrics
       const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
-      const chordTokens = tokens.filter(t => {
+      const chordOrNotationTokens = tokens.filter(t => {
         const m = t.match(chordRegex);
         return m && m[0] === t;
       });
-      const nonChordTokens = tokens.filter(t => !chordTokens.includes(t));
+      const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
       
-      // Heuristic: High chord density, or no long words typically found in lyrics
       const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
       const isActuallyChordLine = tokens.length > 0 && (
-        (chordTokens.length / tokens.length >= 0.6) || 
-        (chordTokens.length > 0 && !hasLongLyrics)
+        (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+        (chordOrNotationTokens.length > 0 && !hasLongLyrics)
       );
 
-      const splitRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]])))/g;
+      const splitRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?:[A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
       const parts = line.split(splitRegex);
 
       return (
@@ -431,11 +487,7 @@ export default function App() {
               return (
                 <span
                   key={i}
-                  className={`font-mono transition-all inline-block select-none ${
-                    isChordHighlighterActive 
-                      ? 'text-white bg-blue-600 dark:bg-blue-500 rounded-md px-2 py-0.5 mx-0.5 font-bold shadow-md shadow-blue-500/20' 
-                      : 'text-blue-600 dark:text-blue-400 font-bold'
-                  }`}
+                  className="font-mono transition-all inline-block select-none text-blue-600 dark:text-blue-400 font-bold"
                   style={{ whiteSpace: 'pre' }}
                 >
                   {part}
@@ -454,7 +506,7 @@ export default function App() {
         </div>
       );
     });
-  }, [transposedLetra, isChordHighlighterActive, showChords]);
+  }, [transposedLetra, showChords]);
 
   const [searchCanto, setSearchCanto] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -874,57 +926,409 @@ export default function App() {
     }
   };
 
-  const exportCantoAsPDF = (canto: Canto, currentKey?: string, transposedLyrics?: string) => {
+  const exportCantoAsPDF = (canto: Canto, currentKey?: string, transposedLyrics?: string, showChords: boolean = true) => {
     try {
-      const doc = new jsPDF();
-      const margin = 20;
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const contentWidth = pageWidth - (margin * 2);
-      let cursorY = margin;
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
 
-      // Helper to check for page break
+      const marginX = 18;
+      const marginY = 20;
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const contentWidth = 174; 
+      let cursorY = marginY;
+
+      const fontSizeBody = 12; 
+      const fontSizeTitle = 16;
+      const fontSizeInfo = 11;
+      const lineSpacing = 1.3;
+      let lineStep = (fontSizeBody * 0.3527) * lineSpacing; 
+
+      const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
+
+      const ensurePdfSafeChars = (text: string) => {
+        return text.replace(/[ª]/g, 'a').replace(/[º°ø]/g, 'o');
+      };
+
       const checkPageBreak = (neededHeight: number) => {
-        if (cursorY + neededHeight > pageHeight - margin) {
+        if (cursorY + neededHeight > pageHeight - marginY) {
           doc.addPage();
-          cursorY = margin;
+          cursorY = marginY;
+          return true;
+        }
+        return false;
+      };
+
+      const drawSpecialSymbols = (line: string, x: number, y: number, charWidth: number, scale: number = 1.0) => {
+        const cW = charWidth;
+        const thickness = 0.3 * scale;
+        doc.setLineWidth(thickness);
+        doc.setDrawColor(30, 41, 59);
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          const currX = x + (i * cW);
+          const topY = y - (3.5 * scale);
+          const bottomY = y + (0.5 * scale);
+          const midX = currX + (cW / 2);
+          
+          if (char === '┌' || char === '%m') {
+            doc.line(midX, bottomY, midX, topY + (0.4 * scale)); 
+            doc.line(midX + (0.4 * scale), topY, currX + cW, topY);
+            doc.line(midX, topY + (0.4 * scale), midX + (0.4 * scale), topY);
+          } else if (char === '┐' || char === '%n') {
+            doc.line(midX, bottomY, midX, topY + (0.4 * scale));
+            doc.line(currX, topY, midX - (0.4 * scale), topY);
+            doc.line(midX - (0.4 * scale), topY, midX, topY + (0.4 * scale));
+          } else if (char === '─' || char === '%') {
+            doc.line(currX, topY, currX + cW, topY);
+          } else if (char === '│' || char === '|') {
+            doc.line(midX, y - (4 * scale), midX, y + (1 * scale));
+          } else if (char === '~' || char === '^') {
+            // Simple arch using lines for maximum compatibility
+            doc.line(currX + (0.1 * cW), bottomY, midX, topY - (0.5 * scale));
+            doc.line(midX, topY - (0.5 * scale), currX + cW - (0.1 * cW), bottomY);
+          } else if (char === '└') {
+            doc.line(midX, topY, midX, bottomY - (0.4 * scale));
+            doc.line(midX + (0.4 * scale), bottomY, currX + cW, bottomY);
+            doc.line(midX, bottomY - (0.4 * scale), midX + (0.4 * scale), bottomY);
+          } else if (char === '┘') {
+            doc.line(midX, topY, midX, bottomY - (0.4 * scale));
+            doc.line(currX, bottomY, midX - (0.4 * scale), bottomY);
+            doc.line(midX - (0.4 * scale), bottomY, midX, bottomY - (0.4 * scale));
+          }
         }
       };
 
-      // Header
-      doc.setFontSize(22);
-      doc.setFont('helvetica', 'bold');
-      doc.text(canto.nome, margin, cursorY);
-      cursorY += 12;
+      // 1. Calculate Scaling
+      const baseLyrics = (transposedLyrics && transposedLyrics.trim() !== '') ? transposedLyrics : canto.letra;
+      const rawLines = baseLyrics.split('\n');
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(fontSizeBody);
+      let maxLineW = 0;
+      rawLines.forEach(l => {
+        const w = doc.getTextWidth(l);
+        if (w > maxLineW) maxLineW = w;
+      });
+      let pageScale = 1.0;
+      if (maxLineW > contentWidth) {
+        pageScale = Math.max(0.95, contentWidth / maxLineW);
+      }
+      const activeFontSize = fontSizeBody * pageScale;
+      lineStep = (activeFontSize * 0.3527) * lineSpacing;
 
-      doc.setFontSize(10);
+      // 2. Main Title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(fontSizeTitle);
+      doc.setTextColor(15, 23, 42); 
+      doc.text(canto.nome, marginX, cursorY);
+      cursorY += (fontSizeTitle * 0.3527) + 4;
+
+      // 3. Info Line
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100);
-      const infoText = `Momento: ${canto.tipo} | Tom: ${currentKey || canto.tom} | Ano: ${canto.ano || 'Geral'}${canto.bpm ? ` | BPM: ${canto.bpm}` : ''}${canto.compasso ? ` | Compasso: ${canto.compasso}` : ''}`;
-      doc.text(infoText, margin, cursorY);
+      doc.setFontSize(fontSizeInfo);
+      doc.setTextColor(71, 85, 105);
+      const infoText = `Tom: ${currentKey || canto.tom} | Momento: ${canto.tipo} | Ano: ${canto.ano || 'Geral'}${canto.bpm ? ` | BPM: ${canto.bpm}` : ''}${canto.compasso ? ` | Compasso: ${canto.compasso}` : ''}`;
+      doc.text(infoText, marginX, cursorY);
       cursorY += 15;
 
-      // Lyrics
-      doc.setFontSize(11);
-      doc.setTextColor(0);
-      doc.setFont('courier', 'normal'); 
+      const lines = rawLines;
+      const blocks: { type: 'section' | 'content', lines: string[] }[] = [];
+      let currentBlockLines: string[] = [];
 
-      const baseLyrics = (transposedLyrics && transposedLyrics.trim() !== '') ? transposedLyrics : canto.letra;
-      const lyricsToExport = showChords ? baseLyrics : baseLyrics.replace(/\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/g, '');
-      
-      const lines = lyricsToExport.split('\n');
-      
-      lines.forEach((line: string) => {
-        checkPageBreak(8);
-        doc.text(line, margin, cursorY);
-        cursorY += 8;
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && (trimmed.startsWith('[') || sectionRegex.test(trimmed))) {
+          if (currentBlockLines.length > 0) blocks.push({ type: 'content', lines: [...currentBlockLines] });
+          blocks.push({ type: 'section', lines: [line] });
+          currentBlockLines = [];
+        } else {
+          currentBlockLines.push(line);
+        }
+      });
+      if (currentBlockLines.length > 0) blocks.push({ type: 'content', lines: currentBlockLines });
+
+      blocks.forEach(block => {
+        const blockHeight = block.lines.length * lineStep + (block.type === 'section' ? 4 : 0);
+        checkPageBreak(block.type === 'section' ? lineStep * 3 : Math.min(blockHeight, 25));
+
+        block.lines.forEach((line, lineIdx) => {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) {
+            cursorY += lineStep;
+            return;
+          }
+
+          if (block.type === 'section') {
+            const headerText = trimmedLine.startsWith('[') ? trimmedLine : `[${trimmedLine}]`;
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(12);
+            doc.text(ensurePdfSafeChars(headerText), marginX, cursorY);
+            cursorY += lineStep + 2;
+            return;
+          }
+
+          const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
+          const chordOrNotationTokens = tokens.filter(t => {
+            const m = t.match(chordRegex);
+            return m && m[0] === t;
+          });
+          const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
+          const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+          const isChordLine = tokens.length > 0 && (
+            (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+            (chordOrNotationTokens.length > 0 && !hasLongLyrics)
+          );
+
+          if (isChordLine && !showChords) return;
+
+          doc.setFont('courier', isChordLine ? 'bold' : 'normal');
+          doc.setFontSize(activeFontSize);
+          if (isChordLine) {
+            doc.setTextColor(30, 41, 59);
+          } else {
+            doc.setTextColor(51, 65, 85);
+          }
+
+          if (isChordLine && block.lines[lineIdx + 1] && block.lines[lineIdx + 1].trim()) {
+            checkPageBreak(lineStep * 2.5);
+          } else {
+            checkPageBreak(lineStep);
+          }
+
+          const charWidth = doc.getTextWidth(' ');
+          drawSpecialSymbols(line, marginX, cursorY, charWidth, pageScale);
+          const textLine = ensurePdfSafeChars(line.replace(/[┌┐─│~^└┘|]/g, ' '));
+          
+          if (doc.getTextWidth(textLine) > contentWidth + 0.5) {
+             const wrapLines = doc.splitTextToSize(textLine, contentWidth);
+             wrapLines.forEach((wl: string, widx: number) => {
+               if (widx > 0) checkPageBreak(lineStep);
+               doc.text(wl, marginX, cursorY);
+               if (widx < wrapLines.length - 1) cursorY += lineStep;
+             });
+          } else {
+             doc.text(textLine, marginX, cursorY);
+          }
+          
+          cursorY += lineStep;
+        });
+        
+        cursorY += 2; 
       });
 
       doc.save(`${canto.nome.toLowerCase().replace(/\s+/g, '_')}.pdf`);
-      showNotification(`PDF de "${canto.nome}" gerado com sucesso.`, 'success');
+      showNotification(`Musica "${canto.nome}" exportada para PDF com sucesso.`, 'success');
     } catch (err) {
-      showNotification('Erro ao gerar PDF da música.', 'error');
       console.error('PDF Export Error:', err);
+      showNotification('Erro interno na exportação PDF.', 'error');
+    }
+  };
+
+
+  const exportFolhetoAsPDF = (agenda: AgendaItem) => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      const marginX = 18;
+      const marginY = 20;
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const contentWidth = 174;
+      let cursorY = marginY;
+
+      const fontSizeBody = 11;
+      const fontSizeTitle = 22;
+      const lineSpacing = 1.3;
+      let lineStep = (fontSizeBody * 0.3527) * lineSpacing;
+
+      const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
+
+      const ensurePdfSafeChars = (text: string) => {
+        return text.replace(/[ª]/g, 'a').replace(/[º°ø]/g, 'o');
+      };
+
+      const checkPageBreak = (neededHeight: number) => {
+        if (cursorY + neededHeight > pageHeight - marginY) {
+          doc.addPage();
+          cursorY = marginY;
+          return true;
+        }
+        return false;
+      };
+
+      const drawSpecialSymbols = (line: string, x: number, y: number, charWidth: number, scale: number = 1.0) => {
+        const cW = charWidth;
+        const thickness = 0.25 * scale;
+        doc.setLineWidth(thickness);
+        doc.setDrawColor(30, 41, 59);
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          const currX = x + (i * cW);
+          const topY = y - (2.8 * scale);
+          const bottomY = y + (0.4 * scale);
+          const midX = currX + (cW / 2);
+          
+          if (char === '┌') {
+            doc.line(midX, bottomY, midX, topY + (0.4 * scale)); 
+            doc.line(midX + (0.4 * scale), topY, currX + cW, topY);
+            doc.line(midX, topY + (0.4 * scale), midX + (0.4 * scale), topY);
+          } else if (char === '┐') {
+            doc.line(midX, bottomY, midX, topY + (0.4 * scale));
+            doc.line(currX, topY, midX - (0.4 * scale), topY);
+            doc.line(midX - (0.4 * scale), topY, midX, topY + (0.4 * scale));
+          } else if (char === '─') {
+            doc.line(currX, topY, currX + cW, topY);
+          } else if (char === '│' || char === '|') {
+            doc.line(midX, y - (3 * scale), midX, y + (1 * scale));
+          } else if (char === '└') {
+            doc.line(midX, topY, midX, bottomY - (0.4 * scale));
+            doc.line(midX + (0.4 * scale), bottomY, currX + cW, bottomY);
+            doc.line(midX, bottomY - (0.4 * scale), midX + (0.4 * scale), bottomY);
+          } else if (char === '┘') {
+            doc.line(midX, topY, midX, bottomY - (0.4 * scale));
+            doc.line(currX, bottomY, midX - (0.4 * scale), bottomY);
+            doc.line(midX - (0.4 * scale), bottomY, midX, bottomY - (0.4 * scale));
+          }
+        }
+      };
+
+      // Main Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(fontSizeTitle);
+      doc.setTextColor(15, 23, 42);
+      doc.text(agenda.titulo, marginX, cursorY);
+      cursorY += 12;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      const eventDate = new Date(agenda.data);
+      const dateText = `${eventDate.toLocaleDateString('pt-BR')} ${eventDate.toLocaleTimeString('pt-BR', {timeStyle: 'short'})} | Local: ${agenda.local || 'Não definido'}`;
+      doc.text(dateText, marginX, cursorY);
+      cursorY += 15;
+
+      if (!agenda.cantosIds || agenda.cantosIds.length === 0) {
+        doc.setFontSize(12);
+        doc.text("Nenhuma música vinculada a este roteiro.", marginX, cursorY);
+      } else {
+        agenda.cantosIds.forEach((id, idx) => {
+          const canto = cantos.find(c => String(c.id) === String(id));
+          if (!canto) return;
+
+          checkPageBreak(30);
+          cursorY += 10;
+          
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.setTextColor(15, 23, 42);
+          doc.text(`${idx + 1}. ${canto.nome}`, marginX, cursorY);
+          cursorY += 6;
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(100, 116, 139);
+          doc.text(`${canto.tipo} | Tom: ${canto.tom}`, marginX, cursorY);
+          cursorY += 10;
+
+          const cantoLines = canto.letra.split('\n');
+          
+          // Pre-calculate scaling for the song
+          doc.setFont('courier', 'normal');
+          doc.setFontSize(fontSizeBody);
+          let songMaxW = 0;
+          cantoLines.forEach(l => {
+            const w = doc.getTextWidth(l);
+            if (w > songMaxW) songMaxW = w;
+          });
+          let songScale = 1.0;
+          if (songMaxW > contentWidth) {
+            songScale = Math.max(0.95, contentWidth / songMaxW);
+          }
+          const songFontSize = fontSizeBody * songScale;
+          const songLineStep = (songFontSize * 0.3527) * lineSpacing;
+
+          cantoLines.forEach((line, lIdx) => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) {
+              cursorY += songLineStep;
+              return;
+            }
+
+            if (trimmedLine.startsWith('[') || sectionRegex.test(trimmedLine)) {
+              checkPageBreak(songLineStep * 2);
+              const headerText = trimmedLine.startsWith('[') ? trimmedLine : `[${trimmedLine}]`;
+              doc.setFont('helvetica', 'bold');
+              doc.setTextColor(15, 23, 42);
+              doc.setFontSize(10);
+              doc.text(ensurePdfSafeChars(headerText), marginX, cursorY);
+              cursorY += 9;
+              return;
+            }
+
+            const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
+            const chordOrNotationTokens = tokens.filter(t => {
+              const m = t.match(chordRegex);
+              return m && m[0] === t;
+            });
+            const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
+            const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+            const isChordLine = tokens.length > 0 && (
+              (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+              (chordOrNotationTokens.length > 0 && !hasLongLyrics)
+            );
+
+            if (isChordLine && cantoLines[lIdx + 1] && cantoLines[lIdx + 1].trim()) {
+              checkPageBreak(songLineStep * 2.5);
+            } else {
+              checkPageBreak(songLineStep);
+            }
+
+            doc.setFont('courier', isChordLine ? 'bold' : 'normal');
+            doc.setFontSize(songFontSize);
+            if (isChordLine) {
+              doc.setTextColor(30, 41, 59);
+            } else {
+              doc.setTextColor(51, 65, 85);
+            }
+
+            const charWidth = doc.getTextWidth(' ');
+            drawSpecialSymbols(line, marginX, cursorY, charWidth, songScale);
+            const textLine = ensurePdfSafeChars(line.replace(/[┌┐─│~^└┘|]/g, ' '));
+            
+            if (doc.getTextWidth(textLine) > contentWidth + 0.5) {
+              const wrapLines = doc.splitTextToSize(textLine, contentWidth);
+              wrapLines.forEach((wl: string, widx: number) => {
+                if (widx > 0) checkPageBreak(songLineStep);
+                doc.text(wl, marginX, cursorY);
+                if (widx < wrapLines.length - 1) cursorY += songLineStep;
+              });
+            } else {
+              doc.text(textLine, marginX, cursorY);
+            }
+            
+            cursorY += (songLineStep);
+          });
+          
+          cursorY += 12; 
+        });
+      }
+
+      doc.save(`folheto_${agenda.titulo.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+      showNotification(`Folheto "${agenda.titulo}" exportado com sucesso.`, 'success');
+    } catch (err) {
+      console.error('Folheto PDF Export Error:', err);
+      showNotification('Erro ao exportar folheto.', 'error');
     }
   };
 
@@ -1262,6 +1666,17 @@ export default function App() {
                         </div>
                           <div className="flex gap-2">
 
+                         <button 
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportFolhetoAsPDF(item);
+                          }}
+                          className={`p-2 rounded-xl transition-all ${item.cantosIds?.length ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-slate-300'}`}
+                          title="Gerar PDF do Folheto"
+                        >
+                          <Download className="w-5 h-5" />
+                        </button>
                          <button 
                           type="button"
                           onClick={(e) => {
@@ -1714,7 +2129,7 @@ export default function App() {
               }
 
               return (
-                <div className="container mx-auto px-4 pr-16 sm:pr-8 sm:px-8 min-h-screen flex flex-col relative">
+                <div className="w-full px-4 pr-16 sm:pr-8 sm:px-8 min-h-screen flex flex-col relative">
                   {/* Header Pillar */}
                   <div className="flex flex-col sm:flex-row justify-between items-start mb-8 border-b border-slate-200 dark:border-dark-border pb-8 sticky top-0 bg-white/95 dark:bg-dark-bg/95 backdrop-blur-md z-[130] -mx-4 sm:-mx-8 px-4 sm:px-8 pt-20 sm:pt-4">
                     <div className="flex-1 pr-4">
@@ -1789,159 +2204,173 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Floating Action Center (Top Right) - Compact */}
-                  <div className="fixed right-1 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 sm:top-24 sm:translate-y-0 bottom-40 sm:bottom-32 flex flex-col gap-2 sm:gap-4 z-[140] pointer-events-none">
-                    <div className="flex flex-col gap-2 sm:gap-3 pointer-events-auto h-full overflow-y-auto no-scrollbar py-2 sm:py-4 px-0.5 sm:px-1">
-                    {/* Auto-Scroll Controls Column */}
-                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-full p-1 sm:p-1.5 border border-emerald-100 dark:border-emerald-900/50 shadow-xl">
-                      <button 
-                        onClick={() => setIsAutoScrolling(!isAutoScrolling)}
-                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90
-                          ${isAutoScrolling 
-                            ? 'bg-emerald-600 text-white animate-pulse' 
-                            : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'}`}
-                        title={isAutoScrolling ? "Pausar" : "Iniciar"}
-                      >
-                        {isAutoScrolling ? <Pause className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2.5} /> : <Play className="w-4 h-4 sm:w-5 sm:h-5 ml-0.5" strokeWidth={2.5} />}
-                      </button>
-                      <div className="mt-1.5 mb-1 flex flex-col items-center">
-                        <span className="text-[6px] sm:text-[7px] font-black text-emerald-500 uppercase tracking-tighter opacity-70">VEL.</span>
-                        <select 
-                          value={scrollSpeed}
-                          onChange={(e) => setScrollSpeed(Number(e.target.value))}
-                          className="bg-transparent text-[9px] sm:text-[10px] font-black text-emerald-900 dark:text-emerald-100 outline-none text-center appearance-none cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 px-0.5"
+                  {/* Floating Action Center (Top Right) - Consolidated into 1st Menu */}
+                  <div className="fixed right-1 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 sm:top-24 sm:translate-y-0 bottom-40 sm:bottom-32 flex flex-col items-end gap-2 sm:gap-4 z-[140]">
+                    <button 
+                      onClick={() => setShowFloatingMenu(!showFloatingMenu)}
+                      className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-95 pointer-events-auto border-2 ${
+                        showFloatingMenu 
+                          ? 'bg-red-500 border-red-400 text-white rotate-90' 
+                          : 'bg-white border-blue-100 text-blue-600 dark:bg-dark-surface dark:border-dark-border dark:text-blue-400'
+                      }`}
+                    >
+                      {showFloatingMenu ? <X className="w-8 h-8" /> : <Settings className="w-8 h-8" />}
+                    </button>
+
+                    <AnimatePresence>
+                      {showFloatingMenu && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: 20, scale: 0.9 }}
+                          animate={{ opacity: 1, x: 0, scale: 1 }}
+                          exit={{ opacity: 0, x: 20, scale: 0.9 }}
+                          className="flex flex-col gap-2 sm:gap-3 pointer-events-auto max-h-[70vh] overflow-y-auto no-scrollbar py-2 sm:py-4 px-1"
                         >
-                          {[0.1, 0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3].map(v => (
-                            <option key={v} value={v}>{v}x</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                          {/* Auto-Scroll Controls */}
+                          <div className="flex flex-col items-center bg-white/95 dark:bg-dark-surface/95 backdrop-blur-xl rounded-full p-1.5 border border-emerald-100 dark:border-emerald-900/50 shadow-xl">
+                            <button 
+                              onClick={() => setIsAutoScrolling(!isAutoScrolling)}
+                              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-90
+                                ${isAutoScrolling 
+                                  ? 'bg-emerald-600 text-white animate-pulse' 
+                                  : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'}`}
+                              title={isAutoScrolling ? "Pausar Rolagem" : "Iniciar Rolagem"}
+                            >
+                              {isAutoScrolling ? <Pause className="w-5 h-5" strokeWidth={2.5} /> : <Play className="w-5 h-5 ml-0.5" strokeWidth={2.5} />}
+                            </button>
+                            <div className="mt-1.5 mb-1 flex flex-col items-center">
+                              <span className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter opacity-70">VEL.</span>
+                              <select 
+                                value={scrollSpeed}
+                                onChange={(e) => setScrollSpeed(Number(e.target.value))}
+                                className="bg-transparent text-[10px] font-black text-emerald-900 dark:text-emerald-100 outline-none text-center appearance-none cursor-pointer px-1"
+                              >
+                                {[0.1, 0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3].map(v => (
+                                  <option key={v} value={v}>{v}x</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
 
-                    {/* Transposition Column */}
-                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-[1.25rem] sm:rounded-[2rem] p-1 sm:p-1.5 border border-blue-100 dark:border-blue-900/50 shadow-xl">
-                      <button 
-                        onClick={() => setKeyOffset(prev => prev + 1)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all shadow-md active:scale-90"
-                      >
-                        <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
-                      </button>
-                      
-                      <div className="flex flex-col items-center py-1 sm:py-2 px-0.5">
-                        <span className="text-[6px] sm:text-[7px] font-black text-blue-400 uppercase tracking-tighter mb-0.5">TOM</span>
-                        <span className="text-[11px] sm:text-sm font-black text-blue-900 dark:text-blue-100 tabular-nums">
-                          {currentKey}
-                        </span>
-                      </div>
+                          {/* Transposition */}
+                          <div className="flex flex-col items-center bg-white/95 dark:bg-dark-surface/95 backdrop-blur-xl rounded-[2rem] p-1.5 border border-blue-100 dark:border-blue-900/50 shadow-xl">
+                            <button 
+                              onClick={() => setKeyOffset(prev => prev + 1)}
+                              className="w-11 h-11 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-all shadow-md active:scale-90"
+                              title="Subir Tom"
+                            >
+                              <ArrowUp className="w-5 h-5" strokeWidth={3} />
+                            </button>
+                            
+                            <div className="flex flex-col items-center py-2 px-0.5">
+                              <span className="text-[7px] font-black text-blue-400 uppercase tracking-tighter mb-0.5">TOM</span>
+                              <span className="text-sm font-black text-blue-900 dark:text-blue-100 tabular-nums">
+                                {currentKey}
+                              </span>
+                            </div>
 
-                      <button 
-                        onClick={() => setKeyOffset(prev => prev - 1)}
-                        className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-all active:scale-90 shadow-sm mb-1.5"
-                      >
-                        <ArrowDown className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={3} />
-                      </button>
+                            <button 
+                              onClick={() => setKeyOffset(prev => prev - 1)}
+                              className="w-11 h-11 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-all active:scale-90 shadow-sm mb-1.5"
+                              title="Baixar Tom"
+                            >
+                              <ArrowDown className="w-5 h-5" strokeWidth={3} />
+                            </button>
 
-                      {keyOffset !== 0 && (
-                        <div className="flex flex-col gap-1.5 border-t border-blue-50 dark:border-blue-900/50 pt-1.5 w-full items-center">
-                          <button 
-                            onClick={() => setKeyOffset(0)}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-dark-bg transition-all"
-                            title="Resetar Tom Original"
-                          >
-                            <RefreshCcw className="w-3.5 h-3.5" />
-                          </button>
-                          
-                          <button 
-                            onClick={async () => {
-                              if (!currentCanto) return;
-                              if (confirm(`Deseja salvar permanentemente a música "${currentCanto.nome}" no tom ${currentKey}?`)) {
-                                try {
-                                  await updateDoc(doc(db, 'cantos', String(currentCanto.id)), {
-                                    letra: transposedLetra,
-                                    tom: currentKey,
-                                    updatedAt: serverTimestamp()
-                                  });
-                                  setKeyOffset(0);
-                                  showNotification('Tonalidade salva com sucesso!', 'success');
-                                } catch (err) {
-                                  console.error('Erro ao salvar transposição:', err);
-                                  showNotification('Erro ao salvar nova tonalidade.', 'error');
-                                }
-                              }
-                            }}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm"
-                            title="Salvar Tonalidade na Música"
-                          >
-                            <Save className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                            {keyOffset !== 0 && (
+                              <div className="flex flex-col gap-1.5 border-t border-blue-50 dark:border-blue-900/50 pt-1.5 w-full items-center">
+                                <button 
+                                  onClick={() => setKeyOffset(0)}
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-dark-bg transition-all"
+                                  title="Original"
+                                >
+                                  <RefreshCcw className="w-4 h-4" />
+                                </button>
+                                
+                                <button 
+                                  onClick={async () => {
+                                    if (!currentCanto) return;
+                                    if (confirm(`Deseja salvar permanentemente no tom ${currentKey}?`)) {
+                                      try {
+                                        await updateDoc(doc(db, 'cantos', String(currentCanto.id)), {
+                                          letra: transposedLetra,
+                                          tom: currentKey,
+                                          updatedAt: serverTimestamp()
+                                        });
+                                        setKeyOffset(0);
+                                        showNotification('Salvo com sucesso!', 'success');
+                                      } catch (err) {
+                                        showNotification('Erro ao salvar.', 'error');
+                                      }
+                                    }
+                                  }}
+                                  className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm"
+                                  title="Salvar Tom"
+                                >
+                                  <Save className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Zoom & Display */}
+                          <div className="flex flex-col items-center bg-white/95 dark:bg-dark-surface/95 backdrop-blur-xl rounded-[2rem] p-2 border border-slate-100 dark:border-dark-border shadow-xl">
+                            <button 
+                              onClick={() => {
+                                setEditingCanto(currentCanto);
+                                setIsCantoModalOpen(true);
+                              }}
+                              className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-90 mb-2"
+                              title="Editar"
+                            >
+                              <Edit className="w-5 h-5" />
+                            </button>
+
+                            <button 
+                              onClick={() => currentCanto && exportCantoAsPDF(currentCanto, currentKey, transposedLetra || undefined)}
+                              className="w-12 h-12 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-90 mb-2"
+                              title="PDF"
+                            >
+                              <FileText className="w-5 h-5" />
+                            </button>
+
+                            <button 
+                              onClick={() => currentCanto && exportCantoAsJSON(currentCanto)}
+                              className="w-12 h-12 flex items-center justify-center rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all active:scale-90 mb-2"
+                              title="JSON"
+                            >
+                              <FileJson className="w-5 h-5" />
+                            </button>
+                            
+                            <div className="h-px w-8 bg-slate-100 dark:bg-dark-border mb-2" />
+                            
+                            <button 
+                              onClick={() => setShowChords(!showChords)}
+                              className={`w-12 h-12 flex items-center justify-center rounded-full transition-all active:scale-90 border shadow-sm mb-2
+                                ${!showChords ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
+                              title={showChords ? "Ocultar Cifras" : "Mostrar Cifras"}
+                            >
+                              <Music className="w-5 h-5" />
+                            </button>
+                            <div className="h-px w-8 bg-slate-100 mb-2" />
+                            <button 
+                              onClick={() => setFontSize(prev => Math.min(prev + 4, 60))}
+                              className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
+                              title="Aumentar Fonte"
+                            >
+                              <Maximize2 className="w-5 h-5" />
+                            </button>
+                            <button 
+                              onClick={() => setFontSize(prev => Math.max(prev - 4, 12))}
+                              className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm mt-2"
+                              title="Diminuir Fonte"
+                            >
+                              <Minus className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </motion.div>
                       )}
-                    </div>
-
-                    {/* Zoom & Display Column */}
-                    <div className="flex flex-col items-center bg-white/90 dark:bg-dark-surface/90 backdrop-blur-xl rounded-[2.5rem] p-2 border border-slate-100 dark:border-dark-border shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
-                      <button 
-                        onClick={() => {
-                          setEditingCanto(currentCanto);
-                          setIsCantoModalOpen(true);
-                        }}
-                        className="w-14 h-14 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-90 mb-2"
-                        title="Editar Música"
-                      >
-                        <Edit className="w-6 h-6" />
-                      </button>
-
-                      <button 
-                        onClick={() => currentCanto && exportCantoAsPDF(currentCanto, currentKey, transposedLetra || undefined)}
-                        className="w-14 h-14 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-90 mb-2"
-                        title="Exportar PDF"
-                      >
-                        <FileText className="w-6 h-6" />
-                      </button>
-
-                      <button 
-                        onClick={() => currentCanto && exportCantoAsJSON(currentCanto)}
-                        className="w-14 h-14 flex items-center justify-center rounded-full bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all active:scale-90 mb-2"
-                        title="Exportar JSON"
-                      >
-                        <FileJson className="w-6 h-6" />
-                      </button>
-                      
-                      <div className="h-px w-8 bg-slate-100 dark:bg-dark-border mb-2" />
-                      
-                      <button 
-                        onClick={() => setShowChords(!showChords)}
-                        className={`w-14 h-14 flex items-center justify-center rounded-full transition-all active:scale-90 border shadow-sm mb-2
-                          ${!showChords ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
-                        title={showChords ? "Modo Somente Letra" : "Mostrar Cifras"}
-                      >
-                        <Music className="w-6 h-6" />
-                      </button>
-                      <button 
-                        onClick={() => setIsChordHighlighterActive(!isChordHighlighterActive)}
-                        className={`w-14 h-14 flex items-center justify-center rounded-full transition-all active:scale-90 border shadow-sm mb-2
-                          ${isChordHighlighterActive ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
-                        title="Destacar Acordes"
-                      >
-                        <ListMusic className="w-6 h-6" />
-                      </button>
-                      <div className="h-px w-8 bg-slate-100 mb-2" />
-                      <button 
-                        onClick={() => setFontSize(prev => Math.min(prev + 4, 60))}
-                        className="w-14 h-14 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
-                      >
-                        <Maximize2 className="w-6 h-6" />
-                      </button>
-                      <div className="h-px w-8 bg-slate-100 my-2" />
-                      <button 
-                        onClick={() => setFontSize(prev => Math.max(prev - 4, 12))}
-                        className="w-14 h-14 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
-                      >
-                        <Minus className="w-6 h-6" />
-                      </button>
-                    </div>
+                    </AnimatePresence>
                   </div>
-                </div>
 
                   {/* Navigation Panel (Folheto Only) - Far Bottom Right */}
                   {readingAgenda && readingAgenda.cantosIds && (
@@ -2353,9 +2782,9 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-white dark:bg-dark-bg z-[400] flex flex-col pt-safe px-4 sm:px-0"
+            className="fixed inset-0 bg-white dark:bg-dark-bg z-[400] flex flex-col pt-safe"
           >
-            <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col h-full bg-white dark:bg-dark-bg">
+            <div className="w-full flex-1 flex flex-col h-full bg-white dark:bg-dark-bg">
               <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dark-border flex justify-between items-center">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-blue-500 uppercase leading-none mb-1">Editor em Tela Cheia</span>
