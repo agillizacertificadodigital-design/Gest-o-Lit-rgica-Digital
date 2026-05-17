@@ -315,15 +315,33 @@ export default function App() {
     return cantos.find(c => String(c.id) === String(currentCantoId));
   }, [readingCanto, readingAgenda, readingIndex, cantos]);
 
-  const transposeText = (text: string, offset: number) => {
+  const transposeText = (text: string, offset: number, originalKeyHint?: string) => {
     if (offset === 0) return text;
 
-    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const notesSharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const notesFlat = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    
     const map: Record<string, number> = {
       'C': 0, 'c': 0, 'C#': 1, 'c#': 1, 'Db': 1, 'db': 1, 'D': 2, 'd': 2, 'D#': 3, 'd#': 3, 'Eb': 3, 'eb': 3, 'E': 4, 'e': 4, 'F': 5, 'f': 5, 'F#': 6, 'f#': 6, 'Gb': 6, 'gb': 6, 'G': 7, 'g': 7, 'G#': 8, 'g#': 8, 'Ab': 8, 'ab': 8, 'A': 9, 'a': 9, 'A#': 10, 'a#': 10, 'Bb': 10, 'bb': 10, 'B': 11, 'b': 11
     };
 
-    const chordRegex = /(\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+    // Determine if we should prefer flats or sharps based on the target key
+    const getPreference = (origKey: string | undefined, off: number) => {
+      if (!origKey) return 'sharp';
+      const cleanKey = origKey.match(/^[A-G][#b]?/i)?.[0] || 'C';
+      const rootIdx = map[cleanKey];
+      if (rootIdx === undefined) return 'sharp';
+      const targetIdx = (rootIdx + off + 12) % 12;
+      
+      // Keys that typically prefer flats: F (5), Bb (10), Eb (3), Ab (8), Db (1), Gb (6)
+      const flatPreferringIndices = [5, 10, 3, 8, 1, 6];
+      return flatPreferringIndices.includes(targetIdx) ? 'flat' : 'sharp';
+    };
+
+    const preference = getPreference(originalKeyHint, offset);
+    const targetNotes = preference === 'flat' ? notesFlat : notesSharp;
+
+    const chordRegex = /(?:\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
 
     const lines = text.split('\n');
     const transposedLines = lines.map(line => {
@@ -338,16 +356,21 @@ export default function App() {
       });
       const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
       
-      const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+      const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t.replace(/[.,!?;:]/g, '')));
+      const chordRatio = tokens.length > 0 ? (chordOrNotationTokens.length / tokens.length) : 0;
+      
       const isActuallyChordLine = tokens.length > 0 && (
-        (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+        chordRatio >= 0.5 || // Relaxed threshold
         (chordOrNotationTokens.length > 0 && !hasLongLyrics)
       );
 
-      // Perform transposition while attempting to preserve column alignment
+      // Regra: se não for linha de cifra, não transpõe nada (preserva letra)
+      if (!isActuallyChordLine) {
+        return line;
+      }
+
       let resultLine = "";
       let lastIndex = 0;
-      let lineShift = 0;
 
       const matches = Array.from(line.matchAll(chordRegex));
       
@@ -355,19 +378,16 @@ export default function App() {
         const fullMatch = match[0];
         const matchIndex = match.index!;
         
-        // Add content before the match, adjusted by previous shifts
-        resultLine += line.substring(lastIndex, matchIndex);
+        const prefix = line.substring(lastIndex, matchIndex);
+        resultLine += prefix;
+
+        // Regra 1: Identificar e separar acordes aglutinados (ex: C#mF#m -> C#m F#m)
+        if (lastIndex === matchIndex && resultLine.length > 0 && isActuallyChordLine && /^[a-gA-G]/i.test(fullMatch)) {
+          resultLine += ' ';
+        }
 
         // If it's not a chord (just notation), keep it
         if (!/^[A-G]/i.test(fullMatch)) {
-          resultLine += fullMatch;
-          lastIndex = matchIndex + fullMatch.length;
-          continue;
-        }
-
-        // Protection for common words in non-chord lines
-        const isCommonWord = (fullMatch === 'A' || fullMatch === 'E');
-        if (!isActuallyChordLine && isCommonWord && fullMatch.length === 1) {
           resultLine += fullMatch;
           lastIndex = matchIndex + fullMatch.length;
           continue;
@@ -377,13 +397,12 @@ export default function App() {
         const transposeChordPart = (chord: string) => {
           const rootMatch = chord.match(/^[A-G][#b]?/i);
           if (!rootMatch) return chord;
-          const root = rootMatch[0].toUpperCase();
+          const root = rootMatch[0];
           const rest = chord.slice(root.length);
           let rootIndex = map[root];
           if (rootIndex === undefined) return chord;
-          let newIndex = (rootIndex + offset) % 12;
-          if (newIndex < 0) newIndex += 12;
-          return notes[newIndex] + rest;
+          let newIndex = (rootIndex + offset + 12) % 12;
+          return targetNotes[newIndex] + rest;
         };
 
         const parts = fullMatch.split('/');
@@ -391,27 +410,23 @@ export default function App() {
         if (parts[1]) transposed += '/' + transposeChordPart(parts[1]);
 
         resultLine += transposed;
-        
         lastIndex = matchIndex + fullMatch.length;
 
-        // Alignment logic: for chord lines, adjust subsequent spaces to keep following chords in their columns
+        // Alignment logic
         if (isActuallyChordLine) {
           const delta = transposed.length - fullMatch.length;
           if (delta > 0) {
-            // New chord is longer, try to consume spaces after it to maintain alignment
             let spacesToConsume = delta;
             while (spacesToConsume > 0 && lastIndex < line.length && line[lastIndex] === ' ') {
               lastIndex++;
               spacesToConsume--;
             }
           } else if (delta < 0) {
-            // New chord is shorter, add spaces after it to maintain alignment
             resultLine += ' '.repeat(Math.abs(delta));
           }
         }
       }
 
-      // Add remaining portion of the line
       resultLine += line.substring(lastIndex);
       return resultLine;
     });
@@ -421,14 +436,14 @@ export default function App() {
 
   const transposedLetra = useMemo(() => {
     if (!activeReadingCanto) return '';
-    return transposeText(activeReadingCanto.letra, keyOffset);
+    return transposeText(activeReadingCanto.letra, keyOffset, activeReadingCanto.tom);
   }, [activeReadingCanto, keyOffset]);
 
   const formattedLetra = useMemo(() => {
     if (!transposedLetra) return null;
     
     // Synchronized Chord and Notation Regex with transposition logic
-    const chordRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+    const chordRegex = /(?:\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
     
     // Section markers like [Chorus], (Verso), [Primeira Parte], etc.
     const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
@@ -460,13 +475,14 @@ export default function App() {
       });
       const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
       
-      const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+      const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t.replace(/[.,!?;:]/g, '')));
+      const chordRatio = tokens.length > 0 ? (chordOrNotationTokens.length / tokens.length) : 0;
       const isActuallyChordLine = tokens.length > 0 && (
-        (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+        (chordRatio >= 0.5) || 
         (chordOrNotationTokens.length > 0 && !hasLongLyrics)
       );
 
-      const splitRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?:[A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const splitRegex = /(\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?:[a-gA-G][#b]?|[0-9]+))?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
       const parts = line.split(splitRegex);
 
       return (
@@ -478,8 +494,8 @@ export default function App() {
             const isMatch = part && part.match(chordRegex);
             
             // False positive prevention:
-            // In lyrics lines, we avoid highlighting 'A' and 'E' which are extremely common Portuguese words.
-            const isCommonWord = (part === 'A' || part === 'E');
+            // In lyrics lines, we avoid highlighting 'A', 'C', 'D', 'E', 'O' which are extremely common Portuguese words/letters.
+            const isCommonWord = /^[ACDEO]$/.test(part);
             const isSingleLetterInLyrics = part && part.length === 1 && !isActuallyChordLine && isCommonWord;
             const shouldHighlight = isMatch && !isSingleLetterInLyrics;
 
@@ -1003,7 +1019,7 @@ export default function App() {
       const lineSpacing = 1.3;
       let lineStep = (fontSizeBody * 0.3527) * lineSpacing; 
 
-      const chordRegex = /(\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const chordRegex = /(?:\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
       const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
 
       // Mantém caracteres musicais originais para maior fidelidade
@@ -1140,9 +1156,9 @@ export default function App() {
             return m && m[0] === t;
           });
           const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
-          const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+          const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t.replace(/[.,!?;:]/g, '')));
           const isChordLine = tokens.length > 0 && (
-            (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+            (chordOrNotationTokens.length / tokens.length >= 0.5) || 
             (chordOrNotationTokens.length > 0 && !hasLongLyrics)
           );
 
@@ -1211,7 +1227,7 @@ export default function App() {
       const lineSpacing = 1.3;
       let lineStep = (fontSizeBody * 0.3527) * lineSpacing;
 
-      const chordRegex = /(\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const chordRegex = /(?:\b[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[\+\-ªº|])*(\([^\)]*\))?(?:\/([a-gA-G][#b]?|[0-9]+))?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
       const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
 
       // Mantém caracteres musicais originais para maior fidelidade
@@ -1344,9 +1360,9 @@ export default function App() {
               return m && m[0] === t;
             });
             const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
-            const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+            const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t.replace(/[.,!?;:]/g, '')));
             const isChordLine = tokens.length > 0 && (
-              (chordOrNotationTokens.length / tokens.length >= 0.6) || 
+              (chordOrNotationTokens.length / tokens.length >= 0.5) || 
               (chordOrNotationTokens.length > 0 && !hasLongLyrics)
             );
 
