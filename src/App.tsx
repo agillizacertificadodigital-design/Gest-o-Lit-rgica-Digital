@@ -484,13 +484,66 @@ export default function App() {
 
             if (shouldHighlight) {
               if (!showChords) return null;
+              
+              const hasDrawingChars = /[~^┌┐─│└┘]/.test(part);
+
               return (
                 <span
                   key={i}
-                  className="font-mono transition-all inline-block select-none text-blue-600 dark:text-blue-400 font-bold"
+                  className="font-mono transition-all inline-block select-none text-blue-600 dark:text-blue-400 font-bold relative"
                   style={{ whiteSpace: 'pre' }}
                 >
-                  {part}
+                  <span className={hasDrawingChars ? 'opacity-0' : ''}>{part}</span>
+                  {hasDrawingChars && (
+                    <svg 
+                      viewBox={`0 0 ${part.length * 20} 20`} 
+                      className="absolute inset-0 w-full h-[1.3em] -top-[0.2em] overflow-visible pointer-events-none"
+                      preserveAspectRatio="none"
+                    >
+                      {part.split('').map((char, idx) => {
+                        const x = idx * 20;
+                        const midX = x + 10;
+                        const color = "currentColor";
+                        const sw = 2;
+                        if (char === '┌') return (
+                          <g key={idx}>
+                            <line x1={midX} y1="20" x2={midX} y2="5" stroke={color} strokeWidth={sw} />
+                            <line x1={midX} y1="5" x2={x + 20} y2="5" stroke={color} strokeWidth={sw} />
+                          </g>
+                        );
+                        if (char === '┐') return (
+                          <g key={idx}>
+                            <line x1={midX} y1="20" x2={midX} y2="5" stroke={color} strokeWidth={sw} />
+                            <line x1={x} y1="5" x2={midX} y2="5" stroke={color} strokeWidth={sw} />
+                          </g>
+                        );
+                        if (char === '─') return <line key={idx} x1={x} y1="5" x2={x + 20} y2="5" stroke={color} strokeWidth={sw} />;
+                        if (char === '│') return <line key={idx} x1={midX} y1="0" x2={midX} y2="20" stroke={color} strokeWidth={sw} />;
+                        if (char === '└') return (
+                          <g key={idx}>
+                            <line x1={midX} y1="0" x2={midX} y2="15" stroke={color} strokeWidth={sw} />
+                            <line x1={midX} y1="15" x2={x + 20} y2="15" stroke={color} strokeWidth={sw} />
+                          </g>
+                        );
+                        if (char === '┘') return (
+                          <g key={idx}>
+                            <line x1={midX} y1="0" x2={midX} y2="15" stroke={color} strokeWidth={sw} />
+                            <line x1={x} y1="15" x2={midX} y2="15" stroke={color} strokeWidth={sw} />
+                          </g>
+                        );
+                        return null;
+                      })}
+                      {(part.includes('~') || part.includes('^')) && (
+                        <path 
+                          d={`M 2 16 Q ${part.length * 10} -4 ${part.length * 20 - 2} 16`}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                      )}
+                    </svg>
+                  )}
                 </span>
               );
             }
