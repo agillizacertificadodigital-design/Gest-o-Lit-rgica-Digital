@@ -295,36 +295,71 @@ export default function App() {
       'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
     };
 
-    // Regex to find chords (simplistic but effective for most cifras)
-    // Matches A-G, optional # or b, then optional chord quality, and optional bass /A-G
-    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/gi;
+    // Enhanced Chord Regex: 
+    // - Case sensitive (uppercase roots A-G)
+    // - Supports symbols like #, b, 7, 9, 13, sus, add, maj, min, etc.
+    // - Supports Portuguese musical notation symbols (ª, º, °)
+    // - Supports optional bass /F#
+    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))/g;
 
-    return text.replace(chordRegex, (match) => {
-      const parts = match.split('/');
-      const mainChord = parts[0];
-      const bass = parts[1];
+    const lines = text.split('\n');
+    const transposedLines = lines.map(line => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return line;
 
-      const transposeChordPart = (chord: string) => {
-        const rootMatch = chord.match(/^[A-G][#b]?/i);
-        if (!rootMatch) return chord;
-        const root = rootMatch[0].toUpperCase();
-        const rest = chord.slice(root.length);
-        
-        let rootIndex = map[root];
-        if (rootIndex === undefined) return chord;
+      // Heuristic to detect if it's a dedicated chord line
+      const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
+      const chordTokens = tokens.filter(t => {
+        const m = t.match(chordRegex);
+        return m && m[0] === t;
+      });
+      const nonChordTokens = tokens.filter(t => !chordTokens.includes(t));
+      
+      // A line is likely a chord line if:
+      // 1. Majority of tokens are chords (>= 60%)
+      // 2. Has chords AND no "long" words that look like actual lyrics (words with 4+ letters)
+      const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+      const isActuallyChordLine = tokens.length > 0 && (
+        (chordTokens.length / tokens.length >= 0.6) || 
+        (chordTokens.length > 0 && !hasLongLyrics)
+      );
 
-        let newIndex = (rootIndex + offset) % 12;
-        if (newIndex < 0) newIndex += 12;
+      return line.replace(chordRegex, (match) => {
+        // Strict protection for single-letter words in lyrics
+        // 'A' and 'E' are extremely common Portuguese words
+        const isCommonWord = (match === 'A' || match === 'E');
+        if (!isActuallyChordLine && isCommonWord && match.length === 1) {
+          return match;
+        }
 
-        return notes[newIndex] + rest;
-      };
+        const parts = match.split('/');
+        const mainChord = parts[0];
+        const bass = parts[1];
 
-      let result = transposeChordPart(mainChord);
-      if (bass) {
-        result += '/' + transposeChordPart(bass);
-      }
-      return result;
+        const transposeChordPart = (chord: string) => {
+          const rootMatch = chord.match(/^[A-G][#b]?/i);
+          if (!rootMatch) return chord;
+          const root = rootMatch[0].toUpperCase();
+          const rest = chord.slice(root.length);
+          
+          let rootIndex = map[root];
+          if (rootIndex === undefined) return chord;
+
+          let newIndex = (rootIndex + offset) % 12;
+          if (newIndex < 0) newIndex += 12;
+
+          return notes[newIndex] + rest;
+        };
+
+        let result = transposeChordPart(mainChord);
+        if (bass) {
+          result += '/' + transposeChordPart(bass);
+        }
+        return result;
+      });
     });
+
+    return transposedLines.join('\n');
   };
 
   const transposedLetra = useMemo(() => {
@@ -334,29 +369,90 @@ export default function App() {
 
   const formattedLetra = useMemo(() => {
     if (!transposedLetra) return null;
-    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(\([^\)]*\))?(\b|(?=[/\s]))(\/[A-G][#b]?)?/g;
-    const splitRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[2-9]|11|13|M|alt|°|ø|[\+\-])*(?:\([^\)]*\))?(?:\b|(?=[/\s]))(?:\/[A-G][#b]?)?)/g;
+    
+    // Synchronized Chord Regex with transposition logic
+    const chordRegex = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]]))/g;
+    
+    // Section markers like [Chorus], (Verso), etc.
+    const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão)(.*)(\]|\))$/i;
 
-    const parts = transposedLetra.split(splitRegex);
+    const lines = transposedLetra.split('\n');
 
-    return parts.map((part, i) => {
-      if (part.match(chordRegex)) {
-        if (!showChords) return null;
+    return lines.map((line, lineIdx) => {
+      const trimmedLine = line.trim();
+      
+      // 1. Detect and style Section Headers
+      if (trimmedLine && sectionRegex.test(trimmedLine)) {
         return (
-          <span
-            key={i}
-            className={`font-mono transition-all ${
-              isChordHighlighterActive 
-                ? 'text-white bg-blue-700 rounded-sm px-[1px] mx-[-1px] font-bold' 
-                : 'text-blue-700'
-            }`}
-            style={{ display: 'inline', whiteSpace: 'pre' }}
+          <div 
+            key={`section-${lineIdx}`} 
+            className="text-emerald-700 dark:text-emerald-400 font-black text-xs uppercase tracking-[0.3em] mt-12 mb-6 border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-r-xl first:mt-0 shadow-sm"
           >
-            {part}
-          </span>
+            {line}
+          </div>
         );
       }
-      return part;
+
+      // A line is likely a chord line if most of its content matches chord patterns
+      // or has few non-chord tokens.
+      const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
+      const chordTokens = tokens.filter(t => {
+        const m = t.match(chordRegex);
+        return m && m[0] === t;
+      });
+      const nonChordTokens = tokens.filter(t => !chordTokens.includes(t));
+      
+      // Heuristic: High chord density, or no long words typically found in lyrics
+      const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t));
+      const isActuallyChordLine = tokens.length > 0 && (
+        (chordTokens.length / tokens.length >= 0.6) || 
+        (chordTokens.length > 0 && !hasLongLyrics)
+      );
+
+      const splitRegex = /(\b[A-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/([A-G][#b]?|[0-9]+))?(?:\b|(?=\s)|(?=[\]])))/g;
+      const parts = line.split(splitRegex);
+
+      return (
+        <div 
+          key={`line-${lineIdx}`} 
+          className={`min-h-[1.2em] relative transition-colors ${isActuallyChordLine ? 'mb-1 opacity-90' : 'mb-0'}`}
+        >
+          {parts.map((part, i) => {
+            const isMatch = part && part.match(chordRegex);
+            
+            // False positive prevention:
+            // In lyrics lines, we avoid highlighting 'A' and 'E' which are extremely common Portuguese words.
+            const isCommonWord = (part === 'A' || part === 'E');
+            const isSingleLetterInLyrics = part && part.length === 1 && !isActuallyChordLine && isCommonWord;
+            const shouldHighlight = isMatch && !isSingleLetterInLyrics;
+
+            if (shouldHighlight) {
+              if (!showChords) return null;
+              return (
+                <span
+                  key={i}
+                  className={`font-mono transition-all inline-block select-none ${
+                    isChordHighlighterActive 
+                      ? 'text-white bg-blue-600 dark:bg-blue-500 rounded-md px-2 py-0.5 mx-0.5 font-bold shadow-md shadow-blue-500/20' 
+                      : 'text-blue-600 dark:text-blue-400 font-bold'
+                  }`}
+                  style={{ whiteSpace: 'pre' }}
+                >
+                  {part}
+                </span>
+              );
+            }
+            return (
+              <span 
+                key={i} 
+                className={`${trimmedLine === '' ? '' : 'text-slate-800 dark:text-slate-300'}`}
+              >
+                {part}
+              </span>
+            );
+          })}
+        </div>
+      );
     });
   }, [transposedLetra, isChordHighlighterActive, showChords]);
 
