@@ -583,7 +583,7 @@ export default function App() {
     const canto = activeReadingCanto;
 
     if (!canto.tom) return String(keyOffset > 0 ? `+${keyOffset}` : keyOffset);
-    if (keyOffset === 0) return String(canto.tom).toUpperCase();
+    if (keyOffset === 0) return String(canto.tom);
 
     // Reuse the transposition logic for the display key
     const transposeChordPart = (chord: string, offset: number) => {
@@ -601,7 +601,7 @@ export default function App() {
       return NOTES[newIndex] + rest;
     };
 
-    return String(transposeChordPart(canto.tom, keyOffset)).toUpperCase();
+    return String(transposeChordPart(canto.tom, keyOffset));
   }, [readingCanto?.tom, keyOffset, readingAgenda, readingIndex, cantos]);
 
   // Helpers
@@ -1982,7 +1982,7 @@ export default function App() {
                              </span>
                              {canto.tom && (
                                <span className="bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-md">
-                                 TOM: {String(canto.tom).toUpperCase()}
+                                 TOM: {String(canto.tom)}
                                </span>
                              )}
                           </div>
@@ -2978,7 +2978,7 @@ export default function App() {
                       name="tom" 
                       defaultValue={editingCanto?.tom || 'C'}
                       placeholder="C"
-                      className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none font-bold uppercase"
+                      className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none font-bold"
                     />
                   </div>
                   <div className="space-y-1">
