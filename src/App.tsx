@@ -565,6 +565,7 @@ export default function App() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterMoment, setFilterMoment] = useState('todos');
   const [filterYear, setFilterYear] = useState('todos');
+  const [filterSeason, setFilterSeason] = useState('todos');
 
   // Debounce search effect
   useEffect(() => {
@@ -629,9 +630,10 @@ export default function App() {
                            c.letra.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchesMoment = filterMoment === 'todos' || c.tipo === filterMoment;
       const matchesYear = filterYear === 'todos' || c.ano === filterYear;
-      return matchesSearch && matchesMoment && matchesYear;
+      const matchesSeason = filterSeason === 'todos' || c.season === filterSeason;
+      return matchesSearch && matchesMoment && matchesYear && matchesSeason;
     });
-  }, [cantos, debouncedSearch, filterMoment, filterYear]);
+  }, [cantos, debouncedSearch, filterMoment, filterYear, filterSeason]);
 
   const upcomingEvents = useMemo(() => {
     const now = new Date();
@@ -1817,7 +1819,7 @@ export default function App() {
 
               {/* Filters */}
               <div className="bg-white dark:bg-dark-surface p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-dark-border transition-colors">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
                     <input 
@@ -1848,6 +1850,16 @@ export default function App() {
                     <option value="B">Ano B</option>
                     <option value="C">Ano C</option>
                     <option value="Geral">Geral</option>
+                  </select>
+                  <select 
+                    value={filterSeason}
+                    onChange={(e) => setFilterSeason(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm cursor-pointer dark:text-white"
+                  >
+                    <option value="todos">Todos os Tempos</option>
+                    {temposLiturgicos.map(season => (
+                      <option key={season.id} value={season.id}>{season.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>
