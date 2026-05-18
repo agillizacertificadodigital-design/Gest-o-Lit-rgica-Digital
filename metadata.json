@@ -1,6 +1,6 @@
 {
-  "name": "Gestão Litúrgica Digital",
-  "description": "Aplicativo completo para gestão de liturgia, agenda paroquial e repertório musical com integração por tempos litúrgicos.",
+  "name": "Gestão musical litúrgica",
+  "description": "Plataforma profissional para organização de repertórios, cifras e escalas litúrgicas com gestão de tempos e agenda paroquial.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

@@ -76,7 +76,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "Gestão Litúrgica Digital";
+    document.title = "Gestão musical litúrgica";
     if (!auth) {
       console.error("Firebase Auth not initialized. Check your configuration.");
       setAuthLoading(false);
@@ -1451,7 +1451,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-slate-500 font-bold font-serif">Iniciando Liturgia Digital...</p>
+        <p className="text-slate-500 font-bold font-serif">Iniciando Gestão musical litúrgica...</p>
       </div>
     );
   }
@@ -1464,8 +1464,8 @@ export default function App() {
             <div className="inline-flex p-4 bg-white/10 rounded-3xl backdrop-blur-md mb-6">
               <Church className="w-12 h-12" />
             </div>
-            <h1 className="text-4xl font-serif font-black mb-3 leading-tight tracking-tight">Gestão Litúrgica Digital</h1>
-            <p className="text-blue-200 font-medium">Sua ferramenta completa para organização de cantos e agenda paroquial.</p>
+            <h1 className="text-4xl font-serif font-black mb-3 leading-tight tracking-tight">Gestão musical litúrgica</h1>
+            <p className="text-blue-200 font-medium">Plataforma profissional para organização de repertórios, cifras e escalas litúrgicas.</p>
           </div>
           <Auth />
         </div>
@@ -1494,8 +1494,8 @@ export default function App() {
               <Church className="w-6 h-6 text-white" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-[10px] font-black uppercase tracking-tighter opacity-50">Liturgia Digital</span>
-              <span className="font-serif italic font-black">App Católico</span>
+              <span className="text-[10px] font-black uppercase tracking-tighter opacity-50">Gestão musical</span>
+              <span className="font-serif italic font-black text-lg leading-tight">litúrgica</span>
             </div>
           </h1>
           <div className="flex items-center gap-4">
