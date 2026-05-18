@@ -492,7 +492,7 @@ export default function App() {
       return (
         <div 
           key={`line-${lineIdx}`} 
-          className={`min-h-[1.1em] relative transition-colors ${isActuallyChordLine ? 'mb-0 opacity-100' : 'mb-3'}`}
+          className={`min-h-[1.1em] relative transition-colors ${isActuallyChordLine ? 'mb-1 opacity-100' : 'mb-5 sm:mb-6'}`}
         >
           {parts.map((part, i) => {
             const isMatch = part && part.match(chordRegex);
@@ -511,7 +511,7 @@ export default function App() {
               return (
                 <span
                   key={i}
-                  className="font-mono transition-all inline-block select-none text-blue-700 dark:text-blue-400 font-bold relative"
+                  className="font-mono transition-all inline-block select-none text-blue-800 dark:text-blue-300 font-bold relative"
                   style={{ whiteSpace: 'pre' }}
                 >
                   <span className={hasDrawingChars ? 'opacity-0' : ''}>{part}</span>
@@ -571,7 +571,7 @@ export default function App() {
             return (
               <span 
                 key={i} 
-                className={`${trimmedLine === '' ? '' : 'text-slate-900 dark:text-white font-medium'}`}
+                className={`${trimmedLine === '' ? '' : 'text-black dark:text-white font-bold'}`}
               >
                 {part}
               </span>
@@ -2453,8 +2453,8 @@ export default function App() {
                       <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-multiply bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
                       
                       <div 
-                        className="whitespace-pre text-slate-800 dark:text-slate-100 font-mono tracking-normal relative z-20 w-max min-w-full"
-                        style={{ fontSize: `${fontSize}px`, lineHeight: '1.6' }}
+                        className="whitespace-pre text-slate-900 dark:text-white font-mono tracking-normal relative z-20 w-max min-w-full"
+                        style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
                       >
                          {/* Current Key Indicator on Paper */}
                          <div className="mb-8 sm:mb-12 inline-flex items-center gap-3 sm:gap-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 px-5 py-3 sm:px-8 sm:py-4 rounded-2xl sm:rounded-3xl shadow-inner font-black text-base sm:text-lg uppercase tracking-widest relative overflow-hidden group">

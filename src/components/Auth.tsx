@@ -97,7 +97,7 @@ export function Auth({ onAuthSuccess }: AuthProps) {
         </AnimatePresence>
 
         <div className="space-y-1">
-          <label htmlFor="email" className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">E-mail</label>
+          <label htmlFor="email" className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest pl-1">E-mail</label>
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
@@ -113,7 +113,7 @@ export function Auth({ onAuthSuccess }: AuthProps) {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="password" title="Senha" className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Senha</label>
+          <label htmlFor="password" title="Senha" className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest pl-1">Senha</label>
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
