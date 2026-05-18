@@ -37,7 +37,6 @@ import {
   Music2,
   Download,
   Upload,
-  Share2,
   FileJson,
   FileText,
   Check,
@@ -146,27 +145,6 @@ export default function App() {
       unsubscribeUser();
     };
   }, [user]);
-
-  // Deep Linking Effect
-  useEffect(() => {
-    if (cantos.length > 0) {
-      const params = new URLSearchParams(window.location.search);
-      const songId = params.get('reading');
-      const offset = params.get('offset');
-      
-      if (songId) {
-        const song = cantos.find(c => c.id === songId);
-        if (song) {
-          setReadingCanto(song);
-          if (offset) {
-            setKeyOffset(parseInt(offset, 10) || 0);
-          }
-          // Clear params from URL to avoid re-triggering and keeping it clean
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-      }
-    }
-  }, [cantos]);
 
   // Selected Season for the Tempos view
   const [selectedSeason, setSelectedSeason] = useState<LiturgicalSeason | null>(null);
@@ -666,36 +644,6 @@ export default function App() {
 
     return String(transposeChordPart(canto.tom, keyOffset));
   }, [readingCanto?.tom, keyOffset, readingAgenda, readingIndex, cantos]);
-
-  const handleShare = async () => {
-    if (!activeReadingCanto) return;
-    
-    // Create sharing URL
-    const url = new URL(window.location.origin);
-    url.searchParams.set('reading', activeReadingCanto.id.toString());
-    if (keyOffset !== 0) {
-      url.searchParams.set('offset', keyOffset.toString());
-    }
-
-    const shareData = {
-      title: `${activeReadingCanto.nome} - Tom: ${currentKey}`,
-      text: `Confira a cifra de "${activeReadingCanto.nome}" no tom ${currentKey} na Gestão Musical Litúrgica.`,
-      url: url.toString()
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(url.toString());
-        showNotification('Link copiado para a área de transferência!', 'success');
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        showNotification('Erro ao compartilhar.', 'error');
-      }
-    }
-  };
 
   // Helpers
   const getSeasonInfo = (id: string) => {
@@ -2778,13 +2726,6 @@ export default function App() {
                               <FileJson className="w-5 h-5" />
                             </button>
 
-                            <button 
-                              onClick={handleShare}
-                              className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all active:scale-90 mb-2"
-                              title="Compartilhar"
-                            >
-                              <Share2 className="w-5 h-5" />
-                            </button>
                             
                             <div className="h-px w-8 bg-slate-100/50 dark:bg-white/10 mb-2" />
                             
@@ -2798,14 +2739,14 @@ export default function App() {
                             </button>
                             <div className="h-px w-8 bg-slate-100/50 dark:bg-white/10 mb-2" />
                             <button 
-                              onClick={() => setFontSize(prev => Math.min(prev + 4, 60))}
+                              onClick={() => setFontSize(prev => Math.min(prev + 2, 60))}
                               className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
                               title="Aumentar Fonte"
                             >
                               <Maximize2 className="w-5 h-5" />
                             </button>
                             <button 
-                              onClick={() => setFontSize(prev => Math.max(prev - 4, 12))}
+                              onClick={() => setFontSize(prev => Math.max(prev - 2, 6))}
                               className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm mt-2"
                               title="Diminuir Fonte"
                             >
