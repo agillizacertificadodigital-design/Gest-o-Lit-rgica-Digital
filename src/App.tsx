@@ -341,7 +341,7 @@ export default function App() {
     const preference = getPreference(originalKeyHint, offset);
     const targetNotes = preference === 'flat' ? notesFlat : notesSharp;
 
-    const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
+    const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
 
     const lines = text.split('\n');
     const transposedLines = lines.map(line => {
@@ -349,6 +349,8 @@ export default function App() {
       if (!trimmedLine) return line;
 
       // Heuristic to detect if it's a dedicated chord/notation line
+      const commonWords = /\b(a|o|e|é|do|da|de|que|com|se|um|em|os|as|paz|meu|teu|sua|seu)\b/i;
+      const hasCommonWords = commonWords.test(trimmedLine);
       const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
       const chordOrNotationTokens = tokens.filter(t => {
         const m = t.match(chordRegex);
@@ -360,8 +362,8 @@ export default function App() {
       const chordRatio = tokens.length > 0 ? (chordOrNotationTokens.length / tokens.length) : 0;
       
       const isActuallyChordLine = tokens.length > 0 && (
-        chordRatio >= 0.5 || // Relaxed threshold
-        (chordOrNotationTokens.length > 0 && !hasLongLyrics)
+        chordRatio >= 0.7 || 
+        (chordOrNotationTokens.length > 0 && !hasLongLyrics && !hasCommonWords)
       );
 
       // Regra: se não for linha de cifra, não transpõe nada (preserva letra)
@@ -443,7 +445,7 @@ export default function App() {
     if (!transposedLetra) return null;
     
     // Synchronized Chord and Notation Regex with transposition logic
-    const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
+    const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
     
     // Section markers like [Chorus], (Verso), [Primeira Parte], etc.
     const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
@@ -468,6 +470,8 @@ export default function App() {
       }
 
       // Heuristic: High chord/notation density, or no long words typically found in lyrics
+      const commonWords = /\b(a|o|e|é|do|da|de|que|com|se|um|em|os|as|paz|meu|teu|sua|seu)\b/i;
+      const hasCommonWords = commonWords.test(trimmedLine);
       const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
       const chordOrNotationTokens = tokens.filter(t => {
         const m = t.match(chordRegex);
@@ -478,11 +482,11 @@ export default function App() {
       const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t.replace(/[.,!?;:]/g, '')));
       const chordRatio = tokens.length > 0 ? (chordOrNotationTokens.length / tokens.length) : 0;
       const isActuallyChordLine = tokens.length > 0 && (
-        (chordRatio >= 0.5) || 
-        (chordOrNotationTokens.length > 0 && !hasLongLyrics)
+        (chordRatio >= 0.7) || 
+        (chordOrNotationTokens.length > 0 && !hasLongLyrics && !hasCommonWords)
       );
 
-      const splitRegex = /((?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
+      const splitRegex = /((?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$))/g;
       const parts = line.split(splitRegex);
 
       return (
@@ -494,10 +498,10 @@ export default function App() {
             const isMatch = part && part.match(chordRegex);
             
             // False positive prevention:
-            // In lyrics lines, we avoid highlighting 'A', 'C', 'D', 'E', 'O' which are extremely common Portuguese words/letters.
-            const isCommonWord = /^[ACDEO]$/.test(part);
-            const isSingleLetterInLyrics = part && part.length === 1 && !isActuallyChordLine && isCommonWord;
-            const shouldHighlight = isMatch && !isSingleLetterInLyrics;
+            // In lyrics lines, we avoid highlighting single-letter matches that are common articles/words.
+            const isSingleLetterChord = part && part.length === 1 && /^[A-G]$/i.test(part);
+            const shouldExcludeSingleLetter = isSingleLetterChord && !isActuallyChordLine;
+            const shouldHighlight = isMatch && !shouldExcludeSingleLetter;
 
             if (shouldHighlight) {
               if (!showChords) return null;
@@ -507,7 +511,7 @@ export default function App() {
               return (
                 <span
                   key={i}
-                  className="font-mono transition-all inline-block select-none text-blue-600 dark:text-blue-400 font-bold relative"
+                  className="font-mono transition-all inline-block select-none text-blue-700 dark:text-blue-400 font-bold relative"
                   style={{ whiteSpace: 'pre' }}
                 >
                   <span className={hasDrawingChars ? 'opacity-0' : ''}>{part}</span>
@@ -567,7 +571,7 @@ export default function App() {
             return (
               <span 
                 key={i} 
-                className={`${trimmedLine === '' ? '' : 'text-slate-800 dark:text-slate-300'}`}
+                className={`${trimmedLine === '' ? '' : 'text-black dark:text-slate-300'}`}
               >
                 {part}
               </span>
@@ -1030,7 +1034,7 @@ export default function App() {
       const lineSpacing = 1.3;
       let lineStep = (fontSizeBody * 0.3527) * lineSpacing; 
 
-      const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
+      const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
       const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
 
       // Mantém caracteres musicais originais para maior fidelidade
@@ -1161,6 +1165,8 @@ export default function App() {
             return;
           }
 
+          const commonWords = /\b(a|o|e|é|do|da|de|que|com|se|um|em|os|as|paz|meu|teu|sua|seu)\b/i;
+          const hasCommonWords = commonWords.test(trimmedLine);
           const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
           const chordOrNotationTokens = tokens.filter(t => {
             const m = t.match(chordRegex);
@@ -1169,8 +1175,8 @@ export default function App() {
           const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
           const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t.replace(/[.,!?;:]/g, '')));
           const isChordLine = tokens.length > 0 && (
-            (chordOrNotationTokens.length / tokens.length >= 0.5) || 
-            (chordOrNotationTokens.length > 0 && !hasLongLyrics)
+            (chordOrNotationTokens.length / tokens.length >= 0.7) || 
+            (chordOrNotationTokens.length > 0 && !hasLongLyrics && !hasCommonWords)
           );
 
           if (isChordLine && !showChords) return;
@@ -1238,7 +1244,7 @@ export default function App() {
       const lineSpacing = 1.3;
       let lineStep = (fontSizeBody * 0.3527) * lineSpacing;
 
-      const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/(?![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
+      const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
       const sectionRegex = /^(\[|\()(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estribilho|ponte|coda|inst|inter|fim|pre-refrão|parte|estrofe)(.*)(\]|\))$/i;
 
       // Mantém caracteres musicais originais para maior fidelidade
@@ -1365,6 +1371,8 @@ export default function App() {
               return;
             }
 
+            const commonWords = /\b(a|o|e|é|do|da|de|que|com|se|um|em|os|as|paz|meu|teu|sua|seu)\b/i;
+            const hasCommonWords = commonWords.test(trimmedLine);
             const tokens = trimmedLine.split(/\s+/).filter(t => t.length > 0);
             const chordOrNotationTokens = tokens.filter(t => {
               const m = t.match(chordRegex);
@@ -1373,8 +1381,8 @@ export default function App() {
             const nonChordTokens = tokens.filter(t => !chordOrNotationTokens.includes(t));
             const hasLongLyrics = nonChordTokens.some(t => t.length > 3 && /^[a-zÀ-ÿ]+$/i.test(t.replace(/[.,!?;:]/g, '')));
             const isChordLine = tokens.length > 0 && (
-              (chordOrNotationTokens.length / tokens.length >= 0.5) || 
-              (chordOrNotationTokens.length > 0 && !hasLongLyrics)
+              (chordOrNotationTokens.length / tokens.length >= 0.7) || 
+              (chordOrNotationTokens.length > 0 && !hasLongLyrics && !hasCommonWords)
             );
 
             if (isChordLine && cantoLines[lIdx + 1] && cantoLines[lIdx + 1].trim()) {
