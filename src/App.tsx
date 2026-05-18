@@ -1734,7 +1734,7 @@ export default function App() {
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-bold text-blue-900 dark:text-blue-400 flex items-center gap-2">
                           <Music className="w-5 h-5" />
-                          Cantos de {selectedSeason}
+                          Cantos de {getSeasonInfo(selectedSeason).label}
                         </h3>
                         <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full font-bold">
                           {getCantosBySeason(selectedSeason).length} músicas
@@ -2123,7 +2123,7 @@ export default function App() {
                              </span>
                              <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter text-white shadow-md
                                ${temposLiturgicos.find(s => s.id === canto.season)?.color || 'bg-slate-400'}`}>
-                               {canto.season}
+                               {getSeasonInfo(canto.season).label}
                              </span>
                              {canto.tom && (
                                <span className="bg-amber-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter shadow-md">
@@ -2586,7 +2586,7 @@ export default function App() {
                         <span className={`text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tight shadow-sm ${readingAgenda ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
                           {readingAgenda ? 'FOLHETO' : 'LEITURA'}
                         </span>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold uppercase text-[10px] tracking-widest">{currentCanto.season}</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold uppercase text-[10px] tracking-widest">{getSeasonInfo(currentCanto.season).label}</span>
                         <span className="text-slate-300 dark:text-slate-700 font-light uppercase text-[10px]">|</span>
                         <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-widest">{currentCanto.tipo}</span>
                       </div>
@@ -3147,7 +3147,7 @@ export default function App() {
                         <div className="flex gap-2 items-center mt-1">
                           <span className="text-[10px] opacity-40 dark:opacity-60 dark:text-slate-300 uppercase">Ano {canto.ano}</span>
                           <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
-                          <span className="text-[10px] opacity-40 dark:opacity-60 dark:text-slate-300 uppercase">{canto.season}</span>
+                          <span className="text-[10px] opacity-40 dark:opacity-60 dark:text-slate-300 uppercase">{getSeasonInfo(canto.season).label}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
