@@ -39,6 +39,7 @@ import {
   Upload,
   FileJson,
   FileText,
+  Wand2,
   Check,
   Info,
   LogOut,
@@ -252,6 +253,103 @@ export default function App() {
   const [profileEmail, setProfileEmail] = useState('');
   const [profileNewPassword, setProfileNewPassword] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [autoFormatEnabled, setAutoFormatEnabled] = useState(true);
+
+  const formatCifraClub = (text: string) => {
+    const MAX_WIDTH = 58;
+    const lines = text.split('\n');
+    const result: string[] = [];
+    const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
+
+    const isChordLine = (line: string) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) return false;
+      
+      const matches = trimmed.match(chordRegex);
+      if (!matches) return false;
+      
+      const matchedLength = matches.reduce((acc, m) => acc + m.length, 0);
+      const otherChars = trimmed.replace(/\s/g, '').length - matchedLength;
+      return otherChars < matchedLength;
+    };
+
+    const isHeaderLine = (line: string) => {
+      const trimmed = line.trim();
+      return (
+        trimmed.startsWith('[') || 
+        /^(Intro|Verso|Refrão|Solo|Ponte|Final|Vocal|Estrofe|Chorus|Bridge|Pre-Refrão|Pré-Refrão)/i.test(trimmed)
+      );
+    };
+
+    const formatHeader = (line: string) => {
+      let t = line.trim().replace(/[\[\]]/g, '');
+      t = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
+      if (t === 'Pre-refrão') t = 'Pré-Refrão';
+      return `[${t}]`;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim() === '') {
+        if (result.length > 0 && result[result.length - 1] !== '') result.push('');
+        continue;
+      }
+
+      if (isHeaderLine(line)) {
+        result.push(formatHeader(line));
+        continue;
+      }
+
+      const nextLine = lines[i + 1] || "";
+      if (isChordLine(line) && !isChordLine(nextLine) && nextLine.trim() !== '' && !isHeaderLine(nextLine)) {
+        let cLine = line;
+        let lLine = nextLine;
+        
+        while (lLine.length > 0 || cLine.trim().length > 0) {
+          let cut = MAX_WIDTH;
+          if (lLine.length > MAX_WIDTH) {
+            cut = lLine.lastIndexOf(' ', MAX_WIDTH);
+            if (cut <= 0) cut = MAX_WIDTH;
+          }
+          
+          let lSub = lLine.substring(0, cut);
+          let cSub = cLine.substring(0, cut).padEnd(lSub.length);
+          
+          result.push(cSub.replace(/\s+$/, ''));
+          result.push(lSub.trimEnd());
+          
+          lLine = lLine.substring(cut).trimStart();
+          cLine = cLine.substring(cut);
+          // Adjust cLine alignment if we trimmed lLine
+          // This is tricky without a full parser, but let's try to keep it simple
+        }
+        i++;
+      } else {
+        let remaining = line;
+        while (remaining.length > 0) {
+          let cut = MAX_WIDTH;
+          if (remaining.length > MAX_WIDTH) {
+            cut = remaining.lastIndexOf(' ', MAX_WIDTH);
+            if (cut <= 0) cut = MAX_WIDTH;
+          }
+          result.push(remaining.substring(0, cut).trimEnd());
+          remaining = remaining.substring(cut).trimStart();
+        }
+      }
+    }
+    return result.join('\n');
+  };
+
+  const handleLyricsChange = (val: string) => {
+    setLyricsValue(val);
+  };
+
+  const handleManualFormat = () => {
+    const formatted = formatCifraClub(lyricsValue);
+    setLyricsValue(formatted);
+    showNotification('Cifra formatada com sucesso!', 'success');
+  };
 
   useEffect(() => {
     if (user) {
@@ -3154,25 +3252,58 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                  <div className="space-y-1">
                   <div className="flex justify-between items-center pr-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Letra ou Cifra</label>
-                    <button 
-                      type="button" 
-                      onClick={() => setIsLyricsFullScreen(true)}
-                      className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
-                    >
-                      <Maximize2 className="w-3 h-3" />
-                      Tela Cheia
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        type="button" 
+                        onClick={handleManualFormat}
+                        className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline group"
+                        title="Formatar cifra automaticamente"
+                      >
+                        <Wand2 className="w-3 h-3 group-hover:rotate-12 transition-transform" />
+                        Formatar Cifra
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsLyricsFullScreen(true)}
+                        className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                      >
+                        <Maximize2 className="w-3 h-3" />
+                        Tela Cheia
+                      </button>
+                    </div>
                   </div>
                   <textarea 
                     name="letra"
                     value={lyricsValue}
-                    onChange={(e) => setLyricsValue(e.target.value)}
+                    onChange={(e) => handleLyricsChange(e.target.value)}
+                    onPaste={(e) => {
+                      if (autoFormatEnabled) {
+                        const pasted = e.clipboardData.getData('text');
+                        // Small delay to allow paste then format or just prevent default and handle manually
+                        setTimeout(() => {
+                          const currentVal = document.querySelector<HTMLTextAreaElement>('textarea[name="letra"]')?.value || "";
+                          setLyricsValue(formatCifraClub(currentVal));
+                        }, 50);
+                      }
+                    }}
                     placeholder="Escreva a letra ou cole aqui..." 
                     className="w-full border border-slate-200 dark:border-dark-border dark:bg-dark-bg dark:text-white p-4 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm leading-relaxed"
                   />
+                  <div className="flex items-center gap-2 mt-1 px-1">
+                    <input 
+                      type="checkbox" 
+                      id="auto-format" 
+                      checked={autoFormatEnabled}
+                      onChange={(e) => setAutoFormatEnabled(e.target.checked)}
+                      className="w-3 h-3 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                    />
+                    <label htmlFor="auto-format" className="text-[9px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-tighter cursor-pointer">
+                      Auto-formatar ao colar
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 mt-8">
@@ -3219,10 +3350,20 @@ export default function App() {
                   CONCLUÍDO
                 </button>
               </div>
-              <div className="flex-1 p-4 sm:p-8 bg-slate-50/30 dark:bg-dark-surface/10 rounded-b-[2.5rem]">
+              <div className="flex-1 p-4 sm:p-8 bg-slate-50/30 dark:bg-dark-surface/10 rounded-b-[2.5rem] relative">
+                <div className="absolute top-4 right-10 flex gap-4 z-10">
+                   <button 
+                      type="button" 
+                      onClick={handleManualFormat}
+                      className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-md text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-white dark:hover:bg-dark-surface transition-all shadow-sm group"
+                    >
+                      <Wand2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                      Formatar Letra/Cifra
+                    </button>
+                </div>
                 <textarea 
                   value={lyricsValue}
-                  onChange={(e) => setLyricsValue(e.target.value)}
+                  onChange={(e) => handleLyricsChange(e.target.value)}
                   placeholder="Escreva a letra ou cole aqui..." 
                   className="w-full h-full border-none outline-none bg-transparent font-mono text-lg sm:text-xl text-slate-800 dark:text-white resize-none leading-relaxed"
                   autoFocus
