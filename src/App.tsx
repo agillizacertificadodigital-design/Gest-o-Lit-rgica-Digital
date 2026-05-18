@@ -66,7 +66,7 @@ import {
   serverTimestamp,
   orderBy
 } from 'firebase/firestore';
-import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { onAuthStateChanged, User, signOut, updateProfile, updateEmail, updatePassword } from 'firebase/auth';
 import { Auth } from './components/Auth';
 
 export default function App() {
@@ -270,6 +270,17 @@ export default function App() {
   }, [editingCanto, isCantoModalOpen]);
 
   const [fontSize, setFontSize] = useState(20);
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileNewPassword, setProfileNewPassword] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.displayName || '');
+      setProfileEmail(user.email || '');
+    }
+  }, [user]);
   const [keyOffset, setKeyOffset] = useState(0);
   const [showChords, setShowChords] = useState(true);
   const [showFloatingMenu, setShowFloatingMenu] = useState(false);
@@ -2149,6 +2160,98 @@ export default function App() {
                 <h2 className="text-4xl font-serif font-black text-blue-900 dark:text-blue-400 tracking-tight">Configurações</h2>
                 <p className="text-slate-500 dark:text-slate-400 font-medium">Personalize sua experiência digital.</p>
               </div>
+
+              {/* PERFIL - 3D Card */}
+              <motion.div 
+                whileHover={{ y: -5, translateZ: 20 }}
+                className="bg-white/80 dark:bg-dark-surface/80 backdrop-blur-xl p-8 rounded-[3rem] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-white dark:border-white/5 group preserve-3d"
+              >
+                <div className="flex items-center gap-6 mb-8">
+                  <div className="w-16 h-16 rounded-[1.5rem] bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center transition-all duration-700 group-hover:scale-110 group-hover:rotate-12 shadow-inner">
+                    <UserIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Meu Perfil</h4>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1 italic">Atualize seus dados pessoais</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Nome Completo</label>
+                      <input 
+                        type="text" 
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        placeholder="Seu nome" 
+                        className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 shadow-sm dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">E-mail</label>
+                      <input 
+                        type="email" 
+                        value={profileEmail}
+                        onChange={(e) => setProfileEmail(e.target.value)}
+                        placeholder="seu@email.com" 
+                        className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 shadow-sm dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-4">Nova Senha (deixe em branco para manter)</label>
+                    <input 
+                      type="password" 
+                      value={profileNewPassword}
+                      onChange={(e) => setProfileNewPassword(e.target.value)}
+                      placeholder="••••••••" 
+                      className="w-full p-5 bg-white dark:bg-dark-bg border border-slate-200 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 shadow-sm dark:text-white"
+                    />
+                  </div>
+                  
+                  <motion.button 
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={isUpdatingProfile}
+                    onClick={async () => {
+                      if (!user) return;
+                      setIsUpdatingProfile(true);
+                      try {
+                        // Name update
+                        if (profileName !== user.displayName) {
+                          await updateProfile(user, { displayName: profileName });
+                        }
+                        
+                        // Email update
+                        if (profileEmail !== user.email && profileEmail) {
+                          await updateEmail(user, profileEmail);
+                        }
+                        
+                        // Password update
+                        if (profileNewPassword) {
+                          await updatePassword(user, profileNewPassword);
+                          setProfileNewPassword('');
+                        }
+                        
+                        showNotification('Perfil atualizado com sucesso!', 'success');
+                      } catch (err: any) {
+                        if (err.code === 'auth/requires-recent-login') {
+                          showNotification('Para alterar e-mail ou senha, você precisa ter feito login recentemente. Por favor, saia e entre novamente.', 'error');
+                        } else {
+                          showNotification(`Erro: ${err.message}`, 'error');
+                        }
+                      } finally {
+                        setIsUpdatingProfile(false);
+                      }
+                    }}
+                    className="w-full bg-blue-600 text-white p-5 rounded-2xl font-black shadow-xl shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+                  >
+                    {isUpdatingProfile ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    {isUpdatingProfile ? 'Atualizando...' : 'Salvar Alterações do Perfil'}
+                  </motion.button>
+                </div>
+              </motion.div>
 
               {/* THEME TOGGLE - 3D Card */}
               <motion.div 
