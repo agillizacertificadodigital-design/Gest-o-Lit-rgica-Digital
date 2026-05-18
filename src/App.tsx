@@ -492,7 +492,7 @@ export default function App() {
       return (
         <div 
           key={`line-${lineIdx}`} 
-          className={`min-h-[1.1em] relative transition-colors ${isActuallyChordLine ? 'mb-1 opacity-100' : 'mb-5 sm:mb-6'}`}
+          className={`min-h-[1.1em] relative transition-colors ${isActuallyChordLine ? 'mb-1 opacity-100' : 'mb-3 sm:mb-6'}`}
         >
           {parts.map((part, i) => {
             const isMatch = part && part.match(chordRegex);
@@ -2378,9 +2378,9 @@ export default function App() {
               }
 
               return (
-                <div className="w-full px-4 pr-16 sm:pr-8 sm:px-8 min-h-screen flex flex-col relative">
+                <div className="w-full px-2 sm:px-8 min-h-screen flex flex-col relative">
                   {/* Header Pillar */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start mb-8 border-b border-slate-200 dark:border-dark-border pb-8 sticky top-0 bg-white/95 dark:bg-dark-bg/95 backdrop-blur-md z-[130] -mx-4 sm:-mx-8 px-4 sm:px-8 pt-20 sm:pt-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-6 border-b border-slate-200 dark:border-dark-border pb-6 sticky top-0 bg-white/95 dark:bg-dark-bg/95 backdrop-blur-md z-[130] -mx-2 sm:-mx-8 px-4 sm:px-8 pt-12 sm:pt-4">
                     <div className="flex-1 pr-4">
                       <div className="flex flex-wrap gap-2 items-center mb-3">
                         <span className={`text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tight shadow-sm ${readingAgenda ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
@@ -2443,11 +2443,11 @@ export default function App() {
                   </button>
                   
                   {/* Cifra Display Area with 3D Stand Effect */}
-                  <div className="max-w-4xl mx-auto w-full relative mb-64 px-4 sm:px-0 mt-8">
+                  <div className="max-w-4xl mx-auto w-full relative mb-24 sm:mb-64 px-0 sm:px-0 mt-4 sm:mt-8">
                     <motion.div 
                       initial={{ scale: 0.95, y: 50, rotateX: 10 }}
                       animate={{ scale: 1, y: 0, rotateX: 0 }}
-                      className="bg-white dark:bg-dark-surface min-h-[80vh] p-4 sm:p-16 rounded-3xl sm:rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] border border-white dark:border-white/5 relative z-10 perspective-1000 overflow-x-auto"
+                      className="bg-white dark:bg-dark-surface min-h-[80vh] p-2 sm:p-16 rounded-xl sm:rounded-[4rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] border border-white dark:border-white/5 relative z-10 perspective-1000 overflow-x-auto"
                     >
                       {/* Paper Texture Overlay */}
                       <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-multiply bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
@@ -2476,7 +2476,7 @@ export default function App() {
                   </div>
 
                   {/* Floating Action Center (Top Right) - Consolidated into 1st Menu */}
-                  <div className="fixed right-1 sm:right-4 md:right-8 top-1/2 -translate-y-1/2 sm:top-24 sm:translate-y-0 bottom-40 sm:bottom-32 flex flex-col items-end gap-2 sm:gap-4 z-[140] perspective-1000">
+                  <div className="fixed right-2 sm:right-4 md:right-8 bottom-6 sm:top-24 sm:translate-y-0 flex flex-col items-end gap-2 sm:gap-4 z-[140] perspective-1000">
                     <motion.button 
                       whileHover={{ scale: 1.1, rotate: 10, z: 50 }}
                       whileTap={{ scale: 0.9 }}
