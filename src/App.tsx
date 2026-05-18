@@ -461,7 +461,7 @@ export default function App() {
         return (
           <div 
             key={`section-${lineIdx}`} 
-            className="text-slate-900 dark:text-white font-bold text-lg mt-10 mb-5 flex items-center gap-3 border-b border-slate-100 dark:border-dark-border pb-2"
+            className="text-slate-900 dark:text-white font-bold text-base sm:text-lg mt-6 mb-3 sm:mt-10 sm:mb-5 flex items-center gap-2 sm:gap-3 border-b border-slate-100 dark:border-dark-border pb-2 outline-none"
           >
             <span className="text-blue-500">#</span>
             {headerText}
@@ -492,7 +492,7 @@ export default function App() {
       return (
         <div 
           key={`line-${lineIdx}`} 
-          className={`min-h-[1.2em] relative transition-colors ${isActuallyChordLine ? 'mb-1 opacity-90' : 'mb-0'}`}
+          className={`min-h-[1.1em] relative transition-colors ${isActuallyChordLine ? 'mb-0 opacity-100' : 'mb-3'}`}
         >
           {parts.map((part, i) => {
             const isMatch = part && part.match(chordRegex);
@@ -571,7 +571,7 @@ export default function App() {
             return (
               <span 
                 key={i} 
-                className={`${trimmedLine === '' ? '' : 'text-black dark:text-slate-300'}`}
+                className={`${trimmedLine === '' ? '' : 'text-slate-900 dark:text-white font-medium'}`}
               >
                 {part}
               </span>
@@ -2447,25 +2447,27 @@ export default function App() {
                     <motion.div 
                       initial={{ scale: 0.95, y: 50, rotateX: 10 }}
                       animate={{ scale: 1, y: 0, rotateX: 0 }}
-                      className="bg-white dark:bg-dark-surface min-h-[80vh] p-8 sm:p-16 rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] border border-white dark:border-white/5 relative z-10 perspective-1000 overflow-hidden"
+                      className="bg-white dark:bg-dark-surface min-h-[80vh] p-4 sm:p-16 rounded-3xl sm:rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] border border-white dark:border-white/5 relative z-10 perspective-1000 overflow-x-auto"
                     >
                       {/* Paper Texture Overlay */}
                       <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-multiply bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
                       
                       <div 
-                        className="whitespace-pre text-slate-800 dark:text-slate-100 font-mono tracking-normal relative z-20"
-                        style={{ fontSize: `${fontSize}px`, lineHeight: '2' }}
+                        className="whitespace-pre text-slate-800 dark:text-slate-100 font-mono tracking-normal relative z-20 w-max min-w-full"
+                        style={{ fontSize: `${fontSize}px`, lineHeight: '1.6' }}
                       >
                          {/* Current Key Indicator on Paper */}
-                         <div className="mb-12 inline-flex items-center gap-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 px-8 py-4 rounded-3xl shadow-inner font-black text-lg uppercase tracking-widest relative overflow-hidden group">
+                         <div className="mb-8 sm:mb-12 inline-flex items-center gap-3 sm:gap-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 px-5 py-3 sm:px-8 sm:py-4 rounded-2xl sm:rounded-3xl shadow-inner font-black text-base sm:text-lg uppercase tracking-widest relative overflow-hidden group">
                            <div className="absolute inset-0 bg-blue-500/5 dark:bg-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                           <span className="text-slate-400 dark:text-slate-600 text-[12px]">Tom:</span>
-                           <span className="text-slate-900 dark:text-white text-3xl drop-shadow-sm">{currentKey}</span>
+                           <span className="text-slate-400 dark:text-slate-600 text-[10px] sm:text-[12px]">Tom:</span>
+                           <span className="text-slate-900 dark:text-white text-2xl sm:text-3xl drop-shadow-sm">{currentKey}</span>
                            {keyOffset !== 0 && (
-                             <span className="ml-2 text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">Transposto</span>
+                             <span className="ml-2 text-[9px] sm:text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full border border-blue-200 dark:border-blue-800 whitespace-nowrap">Transposto</span>
                            )}
                          </div>
-                        {formattedLetra}
+                        <div className="px-2 sm:px-0">
+                          {formattedLetra}
+                        </div>
                       </div>
                     </motion.div>
                     

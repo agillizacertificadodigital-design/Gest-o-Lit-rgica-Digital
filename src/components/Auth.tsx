@@ -107,13 +107,13 @@ export function Auth({ onAuthSuccess }: AuthProps) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
               required
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-black"
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-900"
             />
           </div>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="password" className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Senha</label>
+          <label htmlFor="password" title="Senha" className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Senha</label>
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
@@ -123,7 +123,7 @@ export function Auth({ onAuthSuccess }: AuthProps) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-black"
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-900"
             />
           </div>
         </div>
