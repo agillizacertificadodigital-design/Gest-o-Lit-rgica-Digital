@@ -2874,14 +2874,14 @@ export default function App() {
                             <div className="h-px w-8 bg-slate-100/50 dark:bg-white/10 mb-2" />
                             <button 
                               onClick={() => setFontSize(prev => Math.min(prev + 2, 60))}
-                              className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm"
+                              className="w-12 h-12 flex items-center justify-center bg-white dark:bg-dark-surface rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90 border border-slate-100 dark:border-dark-border shadow-sm"
                               title="Aumentar Fonte"
                             >
-                              <Maximize2 className="w-5 h-5" />
+                              <Plus className="w-5 h-5" />
                             </button>
                             <button 
                               onClick={() => setFontSize(prev => Math.max(prev - 2, 6))}
-                              className="w-12 h-12 flex items-center justify-center bg-white rounded-full text-slate-600 hover:bg-slate-50 transition-all active:scale-90 border border-slate-100 shadow-sm mt-2"
+                              className="w-12 h-12 flex items-center justify-center bg-white dark:bg-dark-surface rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90 border border-slate-100 dark:border-dark-border shadow-sm mt-2"
                               title="Diminuir Fonte"
                             >
                               <Minus className="w-5 h-5" />
