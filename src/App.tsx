@@ -248,9 +248,9 @@ export default function App() {
     }
   }, [editingCanto, isCantoModalOpen]);
 
-  const [fontSize, setFontSize] = useState(20);
+  const [fontSize, setFontSize] = useState(15);
   const touchDistRef = useRef<number | null>(null);
-  const initialFontSizeRef = useRef(20);
+  const initialFontSizeRef = useRef(15);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
@@ -288,7 +288,7 @@ export default function App() {
   const [autoFormatEnabled, setAutoFormatEnabled] = useState(true);
 
   const formatCifraClub = (text: string) => {
-    const MAX_WIDTH = 58;
+    const MAX_WIDTH = 60;
     const lines = text.split('\n');
     const result: string[] = [];
     const chordRegex = /(?<![a-zA-ZÀ-ÿ])[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?(?:\/[a-gA-G][#b]?(?:m|maj|min|dim|aug|sus|add|[0-9]|M|alt|°|ø|Δ|▵|[#b]|[\+\-ªº|])*(?:\([^\)]*\))?)?(?![a-zA-ZÀ-ÿ])|(?<=\s|^)[|:/\-_\\[\]┌┐└┘─│~^]+(?=\s|$)/g;
@@ -2689,7 +2689,7 @@ export default function App() {
                       
                       <div 
                         className="whitespace-pre text-slate-900 dark:text-white font-mono tracking-normal relative z-20 w-max min-w-full"
-                        style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
+                        style={{ fontSize: `${fontSize}px`, lineHeight: '1.5' }}
                       >
                          {/* Current Key Indicator on Paper */}
                          <div className="mb-4 sm:mb-12 inline-flex items-center gap-3 sm:gap-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 px-5 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-3xl shadow-inner font-black text-sm sm:text-lg uppercase tracking-widest relative overflow-hidden group">
