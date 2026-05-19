@@ -2082,9 +2082,9 @@ export default function App() {
                     onChange={(e) => setFilterMoment(e.target.value)}
                     className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-sm cursor-pointer dark:text-white shadow-inner appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTkgOWwtNyA3LTctNyIvPjwvc3ZnPg==')] bg-[length:20px] bg-[right_1rem_center] bg-no-repeat"
                   >
-                    <option value="todos">Todos os Momentos</option>
+                    <option value="todos" className="dark:bg-dark-surface dark:text-white">Todos os Momentos</option>
                     {categorias.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <option key={cat} value={cat} className="dark:bg-dark-surface dark:text-white">{cat}</option>
                     ))}
                   </select>
                   <select 
@@ -2092,20 +2092,20 @@ export default function App() {
                     onChange={(e) => setFilterYear(e.target.value)}
                     className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-sm cursor-pointer dark:text-white shadow-inner appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTkgOWwtNyA3LTctNyIvPjwvc3ZnPg==')] bg-[length:20px] bg-[right_1rem_center] bg-no-repeat"
                   >
-                    <option value="todos">Todos os Anos</option>
-                    <option value="A">Ano A</option>
-                    <option value="B">Ano B</option>
-                    <option value="C">Ano C</option>
-                    <option value="Geral">Geral</option>
+                    <option value="todos" className="dark:bg-dark-surface dark:text-white">Todos os Anos</option>
+                    <option value="A" className="dark:bg-dark-surface dark:text-white">Ano A</option>
+                    <option value="B" className="dark:bg-dark-surface dark:text-white">Ano B</option>
+                    <option value="C" className="dark:bg-dark-surface dark:text-white">Ano C</option>
+                    <option value="Geral" className="dark:bg-dark-surface dark:text-white">Geral</option>
                   </select>
                   <select 
                     value={filterSeason}
                     onChange={(e) => setFilterSeason(e.target.value)}
                     className="w-full p-4 bg-slate-50 dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-sm cursor-pointer dark:text-white shadow-inner appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiPjxwYXRoIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJNMTkgOWwtNyA3LTctNyIvPjwvc3ZnPg==')] bg-[length:20px] bg-[right_1rem_center] bg-no-repeat"
                   >
-                    <option value="todos">Todos os Tempos</option>
+                    <option value="todos" className="dark:bg-dark-surface dark:text-white">Todos os Tempos</option>
                     {temposLiturgicos.map(season => (
-                      <option key={season.id} value={season.id}>{season.label}</option>
+                      <option key={season.id} value={season.id} className="dark:bg-dark-surface dark:text-white">{season.label}</option>
                     ))}
                   </select>
                 </div>
@@ -2757,7 +2757,7 @@ export default function App() {
                                 className="bg-transparent text-[10px] font-black text-emerald-900 dark:text-emerald-100 outline-none text-center appearance-none cursor-pointer px-1"
                               >
                                 {[0.1, 0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 3].map(v => (
-                                  <option key={v} value={v}>{v}x</option>
+                                  <option key={v} value={v} className="bg-white dark:bg-dark-surface dark:text-white">{v}x</option>
                                 ))}
                               </select>
                             </div>
@@ -3013,9 +3013,9 @@ export default function App() {
                            defaultValue={editingAgenda?.recorrencia || 'unica'}
                            className="w-full bg-transparent p-5 rounded-3xl outline-none focus:ring-2 focus:ring-amber-600/20 font-black text-lg dark:text-white relative z-10 appearance-none cursor-pointer"
                          >
-                           <option value="unica">Única</option>
-                           <option value="mensal">Mensal</option>
-                           <option value="anual">Anual</option>
+                           <option value="unica" className="dark:bg-dark-surface dark:text-white">Única</option>
+                           <option value="mensal" className="dark:bg-dark-surface dark:text-white">Mensal</option>
+                           <option value="anual" className="dark:bg-dark-surface dark:text-white">Anual</option>
                          </select>
                        </div>
                     </div>
@@ -3220,17 +3220,17 @@ export default function App() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Ano Litúrgico</label>
                     <select name="ano" defaultValue={editingCanto?.ano || 'Geral'} className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none">
-                      <option value="A">Ano A</option>
-                      <option value="B">Ano B</option>
-                      <option value="C">Ano C</option>
-                      <option value="Geral">Geral</option>
+                      <option value="A" className="dark:bg-dark-surface dark:text-white">Ano A</option>
+                      <option value="B" className="dark:bg-dark-surface dark:text-white">Ano B</option>
+                      <option value="C" className="dark:bg-dark-surface dark:text-white">Ano C</option>
+                      <option value="Geral" className="dark:bg-dark-surface dark:text-white">Geral</option>
                     </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Tempo Litúrgico</label>
                     <select name="season" defaultValue={editingCanto?.season || selectedSeason || 'Geral'} className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none">
                       {temposLiturgicos.map(s => (
-                        <option key={s.id} value={s.id}>{s.label}</option>
+                        <option key={s.id} value={s.id} className="dark:bg-dark-surface dark:text-white">{s.label}</option>
                       ))}
                     </select>
                   </div>
@@ -3240,7 +3240,7 @@ export default function App() {
                   <label className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 ml-1">Momento da Missa</label>
                   <select name="tipo" defaultValue={editingCanto?.tipo || categorias[0]} className="w-full border border-slate-200 dark:border-dark-border p-4 rounded-2xl bg-slate-50 dark:bg-dark-bg dark:text-white outline-none font-bold">
                     {categorias.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <option key={cat} value={cat} className="dark:bg-dark-surface dark:text-white">{cat}</option>
                     ))}
                   </select>
                 </div>
