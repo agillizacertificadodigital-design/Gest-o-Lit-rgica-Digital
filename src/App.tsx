@@ -249,6 +249,38 @@ export default function App() {
   }, [editingCanto, isCantoModalOpen]);
 
   const [fontSize, setFontSize] = useState(20);
+  const touchDistRef = useRef<number | null>(null);
+  const initialFontSizeRef = useRef(20);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+      );
+      touchDistRef.current = dist;
+      initialFontSizeRef.current = fontSize;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchDistRef.current !== null) {
+      // Prevent default scrolling when pinching
+      if (e.cancelable) e.preventDefault();
+      
+      const dist = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+      );
+      const ratio = dist / touchDistRef.current;
+      const newFontSize = Math.min(Math.max(initialFontSizeRef.current * ratio, 6), 60);
+      setFontSize(Math.round(newFontSize));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchDistRef.current = null;
+  };
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [profileNewPassword, setProfileNewPassword] = useState('');
@@ -2554,6 +2586,9 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             ref={setScrollElement}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             className="fixed inset-0 bg-white dark:bg-dark-bg z-[100] overflow-y-auto overflow-x-hidden selection:bg-blue-100 dark:selection:bg-blue-900/50"
           >
             {(() => {
@@ -2580,25 +2615,25 @@ export default function App() {
               return (
                 <div className="w-full px-2 sm:px-8 min-h-screen flex flex-col relative">
                   {/* Header Pillar */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start mb-6 border-b border-slate-200 dark:border-dark-border pb-6 sticky top-0 bg-white/95 dark:bg-dark-bg/95 backdrop-blur-md z-[130] -mx-2 sm:-mx-8 px-4 sm:px-8 pt-12 sm:pt-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-2 sm:mb-6 border-b border-slate-200 dark:border-dark-border pb-3 sm:pb-6 sticky top-0 bg-white/95 dark:bg-dark-bg/95 backdrop-blur-md z-[130] -mx-2 sm:-mx-8 px-4 sm:px-8 pt-10 sm:pt-4">
                     <div className="flex-1 pr-4">
-                      <div className="flex flex-wrap gap-2 items-center mb-3">
-                        <span className={`text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tight shadow-sm ${readingAgenda ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
+                      <div className="flex flex-wrap gap-1 sm:gap-2 items-center mb-1 sm:mb-3">
+                        <span className={`text-white text-[8px] sm:text-[10px] font-black px-2 sm:px-3 py-0.5 sm:py-1 rounded-full uppercase tracking-tight shadow-sm ${readingAgenda ? 'bg-indigo-600' : 'bg-emerald-600'}`}>
                           {readingAgenda ? 'FOLHETO' : 'LEITURA'}
                         </span>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold uppercase text-[10px] tracking-widest">{getSeasonInfo(currentCanto.season).label}</span>
-                        <span className="text-slate-300 dark:text-slate-700 font-light uppercase text-[10px]">|</span>
-                        <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-widest">{currentCanto.tipo}</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold uppercase text-[8px] sm:text-[10px] tracking-widest">{getSeasonInfo(currentCanto.season).label}</span>
+                        <span className="text-slate-300 dark:text-slate-700 font-light uppercase text-[8px] sm:text-[10px]">|</span>
+                        <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-[8px] sm:text-[10px] tracking-widest">{currentCanto.tipo}</span>
                       </div>
-                      <h2 className="text-3xl sm:text-5xl font-serif font-black text-slate-900 dark:text-white leading-[1.1] mb-2 tracking-tight">
+                      <h2 className="text-xl sm:text-5xl font-serif font-black text-slate-900 dark:text-white leading-[1.1] mb-1 tracking-tight">
                         {currentCanto.nome}
                       </h2>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[9px] sm:text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                         {readingAgenda ? (
                           <>
                             <span className="text-blue-900 dark:text-blue-300">{readingAgenda.titulo}</span>
                             <span className="text-slate-200 dark:text-slate-800">•</span>
-                            <span className="bg-slate-100 dark:bg-dark-surface px-2 py-0.5 rounded text-[9px] text-slate-600 dark:text-slate-400">Música {readingIndex + 1} de {readingAgenda.cantosIds!.length}</span>
+                            <span className="bg-slate-100 dark:bg-dark-surface px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] text-slate-600 dark:text-slate-400 whitespace-nowrap">Música {readingIndex + 1} de {readingAgenda.cantosIds!.length}</span>
                           </>
                         ) : (
                           <span>CIFRA INDIVIDUAL • REPERTÓRIO</span>
@@ -2606,29 +2641,29 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 sm:gap-3 mt-6 sm:mt-0 flex-wrap sm:flex-nowrap items-center">
-                      <div className="bg-amber-500 text-white px-6 py-4 rounded-3xl flex flex-col items-center shadow-[0_20px_40px_-10px_rgba(245,158,11,0.5)] border-2 border-amber-400 ring-4 ring-amber-500/10">
-                        <span className="text-[10px] font-black opacity-70 uppercase tracking-widest mb-1">Tom Atual</span>
-                        <span className="text-3xl font-black leading-none drop-shadow-md">{currentKey || '-'}</span>
+                    <div className="flex gap-1.5 sm:gap-3 mt-3 sm:mt-0 flex-wrap sm:flex-nowrap items-center">
+                      <div className="bg-amber-500 text-white px-3 py-1.5 sm:px-6 sm:py-4 rounded-xl sm:rounded-3xl flex flex-row sm:flex-col items-center gap-2 sm:gap-0 shadow-[0_10px_20px_-5px_rgba(245,158,11,0.3)] sm:shadow-[0_20px_40px_-10px_rgba(245,158,11,0.5)] border sm:border-2 border-amber-400 ring-2 sm:ring-4 ring-amber-500/10">
+                        <span className="text-[8px] sm:text-[10px] font-black opacity-70 uppercase tracking-widest sm:mb-1">Tom</span>
+                        <span className="text-xl sm:text-3xl font-black leading-none drop-shadow-md">{currentKey || '-'}</span>
                       </div>
                       
                       {currentCanto.tom && keyOffset !== 0 && (
-                        <div className="bg-slate-100 dark:bg-dark-surface text-slate-400 dark:text-slate-600 px-4 py-2.5 rounded-2xl flex flex-col items-center border border-slate-200 dark:border-dark-border">
-                          <span className="text-[9px] font-black uppercase tracking-tighter">Original</span>
-                          <span className="text-lg font-black">{currentCanto.tom}</span>
+                        <div className="bg-slate-100 dark:bg-dark-surface text-slate-400 dark:text-slate-600 px-2 py-1 sm:px-4 sm:py-2.5 rounded-xl flex flex-col items-center border border-slate-200 dark:border-dark-border">
+                          <span className="text-[7px] sm:text-[9px] font-black uppercase tracking-tighter">Original</span>
+                          <span className="text-xs sm:text-lg font-black">{currentCanto.tom}</span>
                         </div>
                       )}
 
                       {currentCanto.bpm && (
-                        <div className="bg-slate-900 dark:bg-slate-950 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-800 dark:border-slate-800">
-                          <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">BPM</span>
-                          <span className="text-xl font-black tabular-nums">{currentCanto.bpm}</span>
+                        <div className="bg-slate-900 dark:bg-slate-950 text-white px-2 py-1 sm:px-5 sm:py-2.5 rounded-xl flex flex-row sm:flex-col items-center gap-1 sm:gap-0 shadow-xl border border-slate-800">
+                          <span className="text-[7px] sm:text-[9px] font-black opacity-50 uppercase tracking-tighter">BPM</span>
+                          <span className="text-xs sm:text-xl font-black tabular-nums">{currentCanto.bpm}</span>
                         </div>
                       )}
                       {currentCanto.compasso && (
-                        <div className="bg-slate-600 dark:bg-slate-800 text-white px-5 py-2.5 rounded-2xl flex flex-col items-center shadow-xl border border-slate-500 dark:border-slate-700">
-                          <span className="text-[9px] font-black opacity-50 uppercase tracking-tighter">COMPASSO</span>
-                          <span className="text-xl font-black tracking-tight">{currentCanto.compasso}</span>
+                        <div className="bg-slate-600 dark:bg-slate-800 text-white px-2 py-1 sm:px-5 sm:py-2.5 rounded-xl flex flex-row sm:flex-col items-center gap-1 sm:gap-0 shadow-xl border border-slate-500 dark:border-slate-700">
+                          <span className="text-[7px] sm:text-[9px] font-black opacity-50 uppercase tracking-tighter">FIRM</span>
+                          <span className="text-xs sm:text-xl font-black tracking-tight">{currentCanto.compasso}</span>
                         </div>
                       )}
                     </div>
@@ -2643,7 +2678,7 @@ export default function App() {
                   </button>
                   
                   {/* Cifra Display Area with 3D Stand Effect */}
-                  <div className="max-w-4xl mx-auto w-full relative mb-24 sm:mb-64 px-0 sm:px-0 mt-4 sm:mt-8">
+                  <div className="max-w-4xl mx-auto w-full relative mb-12 sm:mb-64 px-0 sm:px-0 mt-2 sm:mt-8">
                     <motion.div 
                       initial={{ scale: 0.95, y: 50, rotateX: 10 }}
                       animate={{ scale: 1, y: 0, rotateX: 0 }}
@@ -2657,7 +2692,7 @@ export default function App() {
                         style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}
                       >
                          {/* Current Key Indicator on Paper */}
-                         <div className="mb-8 sm:mb-12 inline-flex items-center gap-3 sm:gap-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 px-5 py-3 sm:px-8 sm:py-4 rounded-2xl sm:rounded-3xl shadow-inner font-black text-base sm:text-lg uppercase tracking-widest relative overflow-hidden group">
+                         <div className="mb-4 sm:mb-12 inline-flex items-center gap-3 sm:gap-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 px-5 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-3xl shadow-inner font-black text-sm sm:text-lg uppercase tracking-widest relative overflow-hidden group">
                            <div className="absolute inset-0 bg-blue-500/5 dark:bg-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                            <span className="text-slate-400 dark:text-slate-600 text-[10px] sm:text-[12px]">Tom:</span>
                            <span className="text-slate-900 dark:text-white text-2xl sm:text-3xl drop-shadow-sm">{currentKey}</span>
