@@ -42,12 +42,13 @@ import {
   Wand2,
   Check,
   Info,
+  GripVertical,
   LogOut,
   User as UserIcon,
   Loader2,
   Save
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import { Canto, AgendaItem, LiturgicalSeason, SeasonInfo } from './types';
 import { INITIAL_SEASONS, INITIAL_CATEGORIES, NOTES, NOTE_MAP } from './constants';
@@ -444,7 +445,7 @@ export default function App() {
   }, [readingCanto?.id, readingAgenda?.id, readingIndex, activeScrollElement]);
 
   // Agenda Modal Selection State
-  const [selectedCantosForAgenda, setSelectedCantosForAgenda] = useState<number[]>([]);
+  const [selectedCantosForAgenda, setSelectedCantosForAgenda] = useState<{id: number, instanceId: string}[]>([]);
   const [showCantoPicker, setShowCantoPicker] = useState(false);
 
   // Transposition Logic
@@ -859,7 +860,7 @@ export default function App() {
       local,
       data,
       recorrencia: recorrencia || 'unica',
-      cantosIds: selectedCantosForAgenda,
+      cantosIds: selectedCantosForAgenda.map(item => item.id),
       ownerId: user.uid,
       updatedAt: serverTimestamp()
     };
@@ -889,7 +890,7 @@ export default function App() {
                      pad(dateObj.getMinutes()) + '00';
 
         const selectedCantosList = selectedCantosForAgenda
-          .map(id => cantos.find(c => String(c.id) === String(id))?.nome)
+          .map(item => cantos.find(c => String(c.id) === String(item.id))?.nome)
           .filter(Boolean)
           .join('\n');
         
@@ -1949,7 +1950,7 @@ export default function App() {
                               className="cursor-pointer flex-1 w-full"
                               onClick={() => {
                                 setEditingAgenda(originalItem);
-                                setSelectedCantosForAgenda(originalItem.cantosIds || []);
+                                setSelectedCantosForAgenda(originalItem.cantosIds?.map(id => ({ id, instanceId: Math.random().toString(36).substr(2, 9) })) || []);
                                 setIsAgendaModalOpen(true);
                               }}
                             >
@@ -3044,13 +3045,25 @@ export default function App() {
                         <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Nenhuma música no roteiro</p>
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        {selectedCantosForAgenda.map((id, index) => {
-                          const canto = cantos.find(c => c.id === id);
+                      <Reorder.Group 
+                        axis="y" 
+                        values={selectedCantosForAgenda} 
+                        onReorder={setSelectedCantosForAgenda}
+                        className="space-y-2"
+                      >
+                        {selectedCantosForAgenda.map((item, index) => {
+                          const canto = cantos.find(c => c.id === item.id);
                           if (!canto) return null;
                           return (
-                            <div key={`${id}-${index}`} className="flex items-center justify-between p-3 bg-white dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl shadow-sm">
+                            <Reorder.Item 
+                              key={item.instanceId} 
+                              value={item}
+                              className="flex items-center justify-between p-3 bg-white dark:bg-dark-bg border border-slate-100 dark:border-dark-border rounded-2xl shadow-sm cursor-grab active:cursor-grabbing group"
+                            >
                               <div className="flex items-center gap-3">
+                                <div className="text-slate-300 dark:text-slate-700 group-hover:text-blue-500 transition-colors">
+                                  <GripVertical className="w-4 h-4" />
+                                </div>
                                 <span className="text-[10px] font-black text-slate-300 dark:text-slate-700 w-5 text-center">{index + 1}</span>
                                 <div className="flex flex-col">
                                   <span className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase leading-none mb-1">{canto.tipo}</span>
@@ -3058,36 +3071,6 @@ export default function App() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1">
-                                <div className="flex flex-col">
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                      const newIds = [...selectedCantosForAgenda];
-                                      if (index > 0) {
-                                        [newIds[index], newIds[index-1]] = [newIds[index-1], newIds[index]];
-                                        setSelectedCantosForAgenda(newIds);
-                                      }
-                                    }}
-                                    className="p-1 text-slate-300 dark:text-slate-700 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-30"
-                                    disabled={index === 0}
-                                  >
-                                    <ArrowUp className="w-4 h-4" />
-                                  </button>
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                      const newIds = [...selectedCantosForAgenda];
-                                      if (index < newIds.length - 1) {
-                                        [newIds[index], newIds[index+1]] = [newIds[index+1], newIds[index]];
-                                        setSelectedCantosForAgenda(newIds);
-                                      }
-                                    }}
-                                    className="p-1 text-slate-300 dark:text-slate-700 hover:text-blue-500 dark:hover:text-blue-400 disabled:opacity-30"
-                                    disabled={index === selectedCantosForAgenda.length - 1}
-                                  >
-                                    <ArrowDown className="w-4 h-4" />
-                                  </button>
-                                </div>
                                 <button 
                                   type="button"
                                   onClick={() => setSelectedCantosForAgenda(prev => prev.filter((_, i) => i !== index))}
@@ -3096,10 +3079,10 @@ export default function App() {
                                   <X className="w-4 h-4" />
                                 </button>
                               </div>
-                            </div>
+                            </Reorder.Item>
                           );
                         })}
-                      </div>
+                      </Reorder.Group>
                     )}
                   </div>
                 </form>
@@ -3168,11 +3151,11 @@ export default function App() {
                     <button 
                       key={canto.id}
                       onClick={() => {
-                        setSelectedCantosForAgenda(prev => [...prev, canto.id]);
+                        setSelectedCantosForAgenda(prev => [...prev, { id: canto.id, instanceId: Math.random().toString(36).substr(2, 9) }]);
                         showNotification(`${canto.nome} adicionada.`, 'info');
                       }}
                       className={`w-full text-left p-4 rounded-2xl bg-white dark:bg-dark-bg border transition-all flex justify-between items-center
-                        ${selectedCantosForAgenda.includes(canto.id) 
+                        ${selectedCantosForAgenda.some(item => item.id === canto.id) 
                           ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/10' 
                           : 'border-slate-100 dark:border-dark-border hover:border-blue-300 dark:hover:border-blue-800'}`}
                     >
@@ -3186,7 +3169,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {selectedCantosForAgenda.includes(canto.id) && (
+                        {selectedCantosForAgenda.some(item => item.id === canto.id) && (
                           <div className="bg-blue-600 text-white p-1 rounded-full">
                             <Check className="w-3 h-3" />
                           </div>
