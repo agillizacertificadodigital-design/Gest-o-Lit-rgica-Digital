@@ -2,18 +2,31 @@
   "entities": {
     "Canto": {
       "title": "Canto",
-      "description": "Uma música litúrgica",
+      "description": "Uma música litúrgica com cifras, momentos, tempos e partitura",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "nome": { "type": "string" },
+        "artista": { "type": "string" },
+        "compositor": { "type": "string" },
+        "ministerio": { "type": "string" },
         "letra": { "type": "string" },
+        "chordPro": { "type": "string" },
         "ano": { "type": "string" },
         "tipo": { "type": "string" },
+        "momentos": { "type": "array" },
         "season": { "type": "string" },
         "tom": { "type": "string" },
+        "tomUtilizado": { "type": "string" },
         "bpm": { "type": "number" },
         "compasso": { "type": "string" },
+        "partitura": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "linkVideo": { "type": "string" },
+        "linkAudio": { "type": "string" },
+        "tags": { "type": "array" },
+        "isFavorite": { "type": "boolean" },
+        "historico": { "type": "array" },
         "ownerId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
@@ -22,20 +35,44 @@
     },
     "AgendaItem": {
       "title": "AgendaItem",
-      "description": "Um evento na agenda",
+      "description": "Uma celebração na agenda paroquial com repertório e escala",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "titulo": { "type": "string" },
+        "tipoCelebracao": { "type": "string" },
         "local": { "type": "string" },
         "data": { "type": "string", "format": "date-time" },
+        "horario": { "type": "string" },
+        "season": { "type": "string" },
+        "ano": { "type": "string" },
         "recorrencia": { "type": "string" },
         "cantosIds": { "type": "array" },
+        "repertorio": { "type": "array" },
+        "escala": { "type": "array" },
+        "observacoes": { "type": "string" },
+        "disponivelOffline": { "type": "boolean" },
         "ownerId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["titulo", "data", "ownerId"]
+    },
+    "Musico": {
+      "title": "Musico",
+      "description": "Membro / Músico da paróquia ou ministério de música",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "instrumentos": { "type": "array" },
+        "telefone": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "ownerId"]
     },
     "UserProfile": {
       "title": "UserProfile",
@@ -44,8 +81,14 @@
       "properties": {
         "userId": { "type": "string" },
         "email": { "type": "string" },
+        "nome": { "type": "string" },
+        "role": { "type": "string" },
+        "ministerio": { "type": "string" },
+        "paroquia": { "type": "string" },
+        "instrumentoPrincipal": { "type": "string" },
         "categorias": { "type": "array" },
         "temposLiturgicos": { "type": "array" },
+        "preferenciaNotacao": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "email"]
@@ -54,11 +97,15 @@
   "firestore": {
     "cantos": {
       "schema": "Canto",
-      "description": "Coleção de cantos dos usuários"
+      "description": "Coleção de músicas litúrgicas"
     },
     "agenda": {
       "schema": "AgendaItem",
-      "description": "Coleção de eventos da agenda dos usuários"
+      "description": "Coleção de celebrações e eventos"
+    },
+    "musicos": {
+      "schema": "Musico",
+      "description": "Coleção de músicos cadastrados para escalas"
     },
     "users": {
       "schema": "UserProfile",
