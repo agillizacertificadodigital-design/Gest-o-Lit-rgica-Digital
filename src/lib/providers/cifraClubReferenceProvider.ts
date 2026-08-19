@@ -24,8 +24,12 @@ export class CifraClubReferenceProvider implements IMusicProvider {
       supportsLyricsSearch: false,
       supportsLyrics: false,
       supportsChords: false, // Não extrai cifra por scraping não autorizado
+      supportsAudioPreview: false,
+      supportsMetadata: true,
       supportsImport: false, // Provedor de referência externa: o usuário visualiza na fonte ou cola a cifra
       supportsPreview: false,
+      supportsChordPreview: false,
+      supportsChordImport: false,
       supportsExternalLink: true
     },
     status: 'online',
@@ -54,6 +58,10 @@ export class CifraClubReferenceProvider implements IMusicProvider {
         title: cleanQuery,
         artist: 'Pesquisa no Cifra Club',
         externalUrl: searchUrl,
+        hasChords: false,
+        hasLyrics: false,
+        hasAudioPreview: false,
+        contentType: 'metadata_only',
         isInternal: false,
         isImportable: false,
         isExternalReference: true,

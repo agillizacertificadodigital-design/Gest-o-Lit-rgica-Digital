@@ -24,8 +24,12 @@ export class CommunityLiturgicalCatalogProvider implements IMusicProvider {
       supportsLyricsSearch: true,
       supportsLyrics: true,
       supportsChords: true,
+      supportsAudioPreview: false,
+      supportsMetadata: true,
       supportsImport: true,
       supportsPreview: true,
+      supportsChordPreview: true,
+      supportsChordImport: true,
       supportsExternalLink: false
     },
     status: 'online',
@@ -89,7 +93,7 @@ export class CommunityLiturgicalCatalogProvider implements IMusicProvider {
     return {
       id: `comm_${m.id}`,
       providerId: 'community_catalog',
-      providerName: 'Acervo Litúrgico Comunitário',
+      providerName: 'Acervo Litúrgico Canônico',
       title: m.title,
       artist: m.artist,
       composer: m.composer,
@@ -98,13 +102,17 @@ export class CommunityLiturgicalCatalogProvider implements IMusicProvider {
       compasso: m.compasso,
       chords: m.chords,
       previewLyrics: m.title,
+      hasChords: true,
+      hasLyrics: true,
+      hasAudioPreview: false,
+      contentType: 'chords',
       isInternal: false,
       isImportable: true,
       isExternalReference: false,
       suggestedMoment: m.suggestedMoment,
       suggestedSeason: m.suggestedSeason,
       matchedField,
-      licenseNotice: 'Acervo de domínio público / Tradição litúrgica católica'
+      licenseNotice: 'Acervo canônico / Tradição litúrgica católica'
     };
   }
 }

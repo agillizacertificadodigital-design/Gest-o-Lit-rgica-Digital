@@ -23,8 +23,12 @@ export class MusicBrainzProvider implements IMusicProvider {
       supportsLyricsSearch: false,
       supportsLyrics: false,
       supportsChords: false,
-      supportsImport: true, // Importa os metadados validados (título, artista, compositor)
+      supportsAudioPreview: false,
+      supportsMetadata: true,
+      supportsImport: true, // Importa os metadados validados (título, artista, álbum, ano)
       supportsPreview: false,
+      supportsChordPreview: false,
+      supportsChordImport: false,
       supportsExternalLink: true
     },
     status: 'online',
@@ -75,6 +79,10 @@ export class MusicBrainzProvider implements IMusicProvider {
           album,
           year,
           externalUrl,
+          hasChords: false,
+          hasLyrics: false,
+          hasAudioPreview: false,
+          contentType: 'metadata_only',
           isInternal: false,
           isImportable: true,
           isExternalReference: false,

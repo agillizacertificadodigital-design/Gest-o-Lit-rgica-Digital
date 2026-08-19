@@ -23,8 +23,12 @@ export class iTunesSearchProvider implements IMusicProvider {
       supportsLyricsSearch: false,
       supportsLyrics: false,
       supportsChords: false,
-      supportsImport: true, // Importa metadados enriquecidos (capa, áudio prévia, artista)
-      supportsPreview: true,
+      supportsAudioPreview: true,
+      supportsMetadata: true,
+      supportsImport: true, // Importa como referência musical enriquecida (capa, áudio prévia, artista, álbum)
+      supportsPreview: true, // Prévia de áudio e capa
+      supportsChordPreview: false,
+      supportsChordImport: false,
       supportsExternalLink: true
     },
     status: 'online',
@@ -74,6 +78,10 @@ export class iTunesSearchProvider implements IMusicProvider {
           coverUrl,
           audioPreviewUrl: item.previewUrl,
           externalUrl: item.trackViewUrl,
+          hasChords: false,
+          hasLyrics: false,
+          hasAudioPreview: Boolean(item.previewUrl),
+          contentType: 'audio_catalog',
           isInternal: false,
           isImportable: true,
           isExternalReference: false,

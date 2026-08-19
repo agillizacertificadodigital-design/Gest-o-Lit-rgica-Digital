@@ -18,8 +18,12 @@ export interface ProviderCapabilities {
   supportsLyricsSearch: boolean;  // Busca por trechos específicos da letra
   supportsLyrics: boolean;        // Retorna letra completa
   supportsChords: boolean;        // Retorna cifras musicais
+  supportsAudioPreview: boolean;  // Fornece prévia em áudio
+  supportsMetadata: boolean;      // Fornece metadados ricos (álbum, capa, ano, compositor)
   supportsImport: boolean;        // Autorizado para importação direta de dados
   supportsPreview: boolean;       // Permite pré-visualização no app
+  supportsChordPreview: boolean;  // Permite visualização de cifra musical
+  supportsChordImport: boolean;   // Permite importação com cifra para biblioteca
   supportsExternalLink: boolean;  // Permite abrir no portal oficial da fonte
 }
 
@@ -38,6 +42,8 @@ export interface MusicProviderInfo {
   apiDocsUrl?: string;
 }
 
+export type ResultContentType = 'chords' | 'lyrics_only' | 'audio_catalog' | 'metadata_only';
+
 export interface UnifiedSearchResult {
   id: string;
   providerId: string;
@@ -51,8 +57,13 @@ export interface UnifiedSearchResult {
   bpm?: number;
   compasso?: string;
   previewLyrics?: string;
+  lyrics?: string;
   chords?: string;
   chordPro?: string;
+  hasChords?: boolean;
+  hasLyrics?: boolean;
+  hasAudioPreview?: boolean;
+  contentType?: ResultContentType;
   externalUrl?: string;
   coverUrl?: string;
   audioPreviewUrl?: string;
@@ -64,6 +75,12 @@ export interface UnifiedSearchResult {
   suggestedSeason?: LiturgicalSeason;
   matchedField?: 'title' | 'artist' | 'lyrics' | 'composer';
   licenseNotice?: string;
+  sources?: {
+    metadata?: string;
+    audio?: string;
+    chords?: string;
+    lyrics?: string;
+  };
 }
 
 export interface ProviderSearchOptions {
