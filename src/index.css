@@ -1,24 +1,27 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&family=Roboto+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap');
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Crimson Pro", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-mono: "Roboto Mono", "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Crimson Pro", ui-serif, Georgia, Cambria, serif;
+  --font-mono: "JetBrains Mono", "Roboto Mono", monospace;
   
-  --color-blue-900: #1e3a8a;
-  --color-blue-800: #1e40af;
+  --color-blue-950: #081530;
+  --color-blue-900: #0f2452;
+  --color-blue-800: #193880;
   --color-blue-700: #1d4ed8;
   --color-blue-600: #2563eb;
   --color-blue-500: #3b82f6;
+  --color-blue-400: #60a5fa;
   --color-blue-100: #dbeafe;
   --color-blue-50: #eff6ff;
   
-  --color-dark-bg: #0f172a;
-  --color-dark-surface: #1e293b;
-  --color-dark-surface-hover: #334155;
-  --color-dark-border: #334155;
-  --color-dark-text: #f8fafc;
+  --color-dark-bg: #070d19;
+  --color-dark-surface: #0e1726;
+  --color-dark-surface-elevated: #152238;
+  --color-dark-surface-hover: #1c2c47;
+  --color-dark-border: #1e2e4a;
+  --color-dark-text: #f1f5f9;
   --color-dark-muted: #94a3b8;
 }
 
@@ -26,7 +29,119 @@
 @variant dark (&:where(.dark, .dark *));
 
 @layer base {
-  .dark body {
-    @apply bg-dark-bg text-dark-text;
+  body {
+    @apply antialiased selection:bg-blue-600 selection:text-white;
   }
+  .dark body {
+    @apply bg-[#070d19] text-[#f1f5f9];
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.12) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(67, 56, 202, 0.08) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(15, 23, 42, 0.5) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+/* 3D Premium Depth & Micro-interactions */
+.card-3d-premium {
+  box-shadow: 
+    0 1px 2px 0 rgba(0, 0, 0, 0.05),
+    0 10px 25px -5px rgba(2, 6, 23, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .card-3d-premium {
+  box-shadow: 
+    0 10px 30px -10px rgba(0, 0, 0, 0.7),
+    0 4px 12px -2px rgba(2, 6, 23, 0.6),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.dark .card-3d-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 20px 35px -12px rgba(0, 0, 0, 0.8),
+    0 6px 16px -3px rgba(37, 99, 235, 0.15),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Tactile 3D Buttons */
+.btn-3d-primary {
+  box-shadow: 
+    0 4px 14px 0 rgba(37, 99, 235, 0.39),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.25),
+    inset 0 -2px 0 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.15s ease-out;
+}
+
+.btn-3d-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 6px 20px 0 rgba(37, 99, 235, 0.5),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 0 rgba(0, 0, 0, 0.2);
+}
+
+.btn-3d-primary:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 6px 0 rgba(37, 99, 235, 0.3),
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Amber/Gold Focus Button for 🔎 BUSCAR MÚSICA OU CIFRA */
+.btn-3d-gold {
+  box-shadow: 
+    0 4px 16px 0 rgba(217, 119, 6, 0.35),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 0 0 rgba(146, 64, 14, 0.4);
+  transition: all 0.15s ease-out;
+}
+
+.btn-3d-gold:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 
+    0 8px 24px 0 rgba(217, 119, 6, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -2px 0 0 rgba(146, 64, 14, 0.4);
+}
+
+.btn-3d-gold:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 6px 0 rgba(217, 119, 6, 0.3),
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Glassmorphism Controlado */
+.glass-panel-3d {
+  background: rgba(14, 23, 38, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 12px 32px 0 rgba(0, 0, 0, 0.37),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
 }

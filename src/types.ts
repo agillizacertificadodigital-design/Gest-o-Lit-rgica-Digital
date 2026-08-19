@@ -160,6 +160,14 @@ export interface EscalaMembro {
   confirmado?: boolean;
 }
 
+export interface EnsaioCelebracao {
+  data?: string; // Formato YYYY-MM-DD
+  horario?: string; // Formato HH:mm (ex: "19:30")
+  local?: string; // Ex: "Salão Paroquial"
+  observacoes?: string;
+  musicasIds?: (number | string)[];
+}
+
 export interface AgendaItem {
   id: number | string;
   titulo: string; // Ex: "Missa do 20º Domingo do Tempo Comum"
@@ -173,6 +181,7 @@ export interface AgendaItem {
   cantosIds?: (number | string)[]; // Lista de IDs para compatibilidade com versões anteriores
   repertorio?: RepertorioItem[]; // Lista rica e ordenada de músicas com tons específicos da celebração
   escala?: EscalaMembro[]; // Escala completa de músicos e instrumentos
+  ensaio?: EnsaioCelebracao; // Ensaio vinculado à celebração
   observacoes?: string;
   disponivelOffline?: boolean;
   ownerId?: string;
