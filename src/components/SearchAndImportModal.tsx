@@ -32,7 +32,7 @@ import {
 import { Canto, SeasonInfo, SearchResult, MusicDetails, CantoVersao, LinkAnalysisResult } from '../types';
 import { MusicProviderRegistry, LITURGICAL_SONG_CATALOG } from '../lib/musicProviders';
 import { parseChordsFromText, textToChordPro, transposeChordPro } from '../lib/chordPro';
-import { NOTES_SHARP, MOMENTOS_LITURGICOS } from '../constants';
+import { NOTES_SHARP, INITIAL_CATEGORIES } from '../constants';
 
 interface SearchAndImportModalProps {
   isOpen: boolean;
@@ -1082,7 +1082,7 @@ export function SearchAndImportModal({
                     onChange={(e) => setReviewData({ ...reviewData, tipo: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm"
                   >
-                    {MOMENTOS_LITURGICOS.map(m => (
+                    {INITIAL_CATEGORIES.map(m => (
                       <option key={m} value={m}>{m}</option>
                     ))}
                   </select>
@@ -1098,7 +1098,7 @@ export function SearchAndImportModal({
                     className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-100 text-sm"
                   >
                     {temposLiturgicos.map(t => (
-                      <option key={t.id} value={t.name}>{t.name}</option>
+                      <option key={t.id} value={t.id}>{t.label || t.id}</option>
                     ))}
                   </select>
                 </div>

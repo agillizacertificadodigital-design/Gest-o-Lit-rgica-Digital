@@ -41,6 +41,7 @@ interface MusicLibraryProps {
   onOpenImport: () => void;
   onOpenNewCanto: () => void;
   onAddToRepertoire: (canto: Canto, agendaId: string | number, tomUtilizado: string, momento?: string) => void;
+  onOpenSearchModal?: (query?: string, tab?: 'search' | 'paste' | 'link') => void;
 }
 
 export function MusicLibrary({
@@ -54,7 +55,8 @@ export function MusicLibrary({
   onToggleFavorite,
   onOpenImport,
   onOpenNewCanto,
-  onAddToRepertoire
+  onAddToRepertoire,
+  onOpenSearchModal
 }: MusicLibraryProps) {
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -160,7 +162,18 @@ export function MusicLibrary({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenSearchModal && (
+            <button
+              id="lib-btn-search-external"
+              onClick={() => onOpenSearchModal(searchTerm)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-black shadow-md shadow-amber-500/20 transition-all active:scale-95 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-slate-950" />
+              BUSCAR MÚSICAS E CIFRAS
+            </button>
+          )}
+
           <button
             id="lib-btn-import"
             onClick={onOpenImport}
@@ -182,25 +195,45 @@ export function MusicLibrary({
       </div>
 
       {/* SEARCH BAR (Section 9) */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-          <Search className="w-5 h-5" />
+      <div className="space-y-2">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+            <Search className="w-5 h-5" />
+          </div>
+          <input 
+            id="lib-search-input"
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="🔎 Buscar música ou cifra por título, artista, momento, tempo, tom ou letra..."
+            className="w-full pl-12 pr-10 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs transition-all"
+          />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 text-xs font-bold"
+            >
+              Limpar
+            </button>
+          )}
         </div>
-        <input 
-          id="lib-search-input"
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="🔎 Buscar música ou cifra por título, artista, momento, tempo, tom ou letra..."
-          className="w-full pl-12 pr-10 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs transition-all"
-        />
-        {searchTerm && (
-          <button 
-            onClick={() => setSearchTerm('')}
-            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 text-xs font-bold"
-          >
-            Limpar
-          </button>
+
+        {/* Dynamic external search prompt when typing */}
+        {searchTerm.trim().length > 1 && onOpenSearchModal && (
+          <div className="flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs">
+            <div className="flex items-center gap-2 text-amber-900 dark:text-amber-300">
+              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>
+                Quer buscar <strong>"{searchTerm}"</strong> também no Acervo Litúrgico Canônico & Motor IA?
+              </span>
+            </div>
+            <button
+              onClick={() => onOpenSearchModal(searchTerm)}
+              className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition-colors shrink-0"
+            >
+              Buscar no Acervo
+            </button>
+          </div>
         )}
       </div>
 

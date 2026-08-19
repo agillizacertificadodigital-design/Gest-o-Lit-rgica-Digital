@@ -32,6 +32,7 @@ import { TemposLiturgicosView } from './components/TemposLiturgicosView';
 import { SettingsView } from './components/SettingsView';
 import { StageMode } from './components/StageMode';
 import { ImportModal } from './components/ImportModal';
+import { SearchAndImportModal } from './components/SearchAndImportModal';
 import { CelebrationModal } from './components/CelebrationModal';
 import { CantoEditorModal } from './components/CantoEditorModal';
 import { QuickSearchModal } from './components/QuickSearchModal';
@@ -226,8 +227,17 @@ export default function App() {
   // Modal & Overlay States
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isSearchAndImportModalOpen, setIsSearchAndImportModalOpen] = useState(false);
+  const [searchModalInitialQuery, setSearchModalInitialQuery] = useState('');
+  const [searchModalInitialTab, setSearchModalInitialTab] = useState<'search' | 'paste' | 'link'>('search');
   const [isCelebrationModalOpen, setIsCelebrationModalOpen] = useState(false);
   const [editingCelebration, setEditingCelebration] = useState<AgendaItem | null>(null);
+
+  const handleOpenSearchModal = (queryText: string = '', tab: 'search' | 'paste' | 'link' = 'search') => {
+    setSearchModalInitialQuery(queryText);
+    setSearchModalInitialTab(tab);
+    setIsSearchAndImportModalOpen(true);
+  };
 
   const [isCantoEditorOpen, setIsCantoEditorOpen] = useState(false);
   const [editingCanto, setEditingCanto] = useState<Canto | null>(null);
@@ -563,6 +573,7 @@ export default function App() {
             }}
             onOpenImport={() => setIsImportModalOpen(true)}
             onToggleFavorite={handleToggleFavorite}
+            onOpenSearchModal={() => handleOpenSearchModal()}
             onOpenNewCelebration={() => {
               setEditingCelebration(null);
               setIsCelebrationModalOpen(true);
@@ -612,6 +623,7 @@ export default function App() {
               setIsCantoEditorOpen(true);
             }}
             onAddToRepertoire={handleAddToRepertoire}
+            onOpenSearchModal={handleOpenSearchModal}
           />
         )}
 
@@ -711,6 +723,18 @@ export default function App() {
         categorias={categorias}
         temposLiturgicos={temposLiturgicos}
         showNotification={showNotification}
+      />
+
+      {/* MODAL: BUSCA EXTERNA & IMPORTAÇÃO DE MÚSICAS / CIFRAS */}
+      <SearchAndImportModal
+        isOpen={isSearchAndImportModalOpen}
+        onClose={() => setIsSearchAndImportModalOpen(false)}
+        onSaveCanto={handleSaveCanto}
+        existingCantos={cantos}
+        temposLiturgicos={temposLiturgicos}
+        showNotification={showNotification}
+        initialQuery={searchModalInitialQuery}
+        initialTab={searchModalInitialTab}
       />
 
       {/* MODAL: EDITAR / CRIAR CANTO COM PAUTA */}
