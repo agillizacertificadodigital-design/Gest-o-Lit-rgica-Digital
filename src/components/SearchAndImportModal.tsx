@@ -27,7 +27,9 @@ import {
   RefreshCw,
   Info,
   Calendar,
-  CheckCircle2
+  CheckCircle2,
+  UploadCloud,
+  FileType
 } from 'lucide-react';
 import { Canto, SeasonInfo, SearchResult, MusicDetails, CantoVersao, LinkAnalysisResult } from '../types';
 import { MusicProviderRegistry, LITURGICAL_SONG_CATALOG } from '../lib/musicProviders';
@@ -43,7 +45,7 @@ interface SearchAndImportModalProps {
   temposLiturgicos: SeasonInfo[];
   showNotification: (msg: string, type?: 'success' | 'error' | 'info') => void;
   initialQuery?: string;
-  initialTab?: 'search' | 'paste' | 'link';
+  initialTab?: 'search' | 'file' | 'paste' | 'link';
 }
 
 export function SearchAndImportModal({
@@ -57,7 +59,13 @@ export function SearchAndImportModal({
   initialQuery = '',
   initialTab = 'search'
 }: SearchAndImportModalProps) {
-  const [activeTab, setActiveTab] = useState<'search' | 'paste' | 'link'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'search' | 'file' | 'paste' | 'link'>(initialTab);
+
+  // Document / File Upload State (PDF, Word DOCX/DOC, TXT, ChordPro)
+  const [selectedDocFile, setSelectedDocFile] = useState<File | null>(null);
+  const [docFileBase64, setDocFileBase64] = useState<string | null>(null);
+  const [isAnalyzingDoc, setIsAnalyzingDoc] = useState(false);
+  const [docStatusMsg, setDocStatusMsg] = useState('');
 
   // Search State
   const [searchQuery, setSearchQuery] = useState(initialQuery);
@@ -364,6 +372,69 @@ export function SearchAndImportModal({
     onClose();
   };
 
+  // Handle Document Upload (PDF, Word DOCX/DOC, ChordPro, TXT)
+  const handleDocumentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedDocFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setDocFileBase64(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAnalyzeDocument = async () => {
+    if (!docFileBase64 || !selectedDocFile) {
+      showNotification('Selecione um arquivo PDF ou Word primeiro.', 'info');
+      return;
+    }
+
+    setIsAnalyzingDoc(true);
+    setDocStatusMsg(`Lendo e analisando "${selectedDocFile.name}" com IA...`);
+
+    try {
+      const res = await fetch('/api/ai/parse-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileBase64: docFileBase64,
+          fileName: selectedDocFile.name,
+          mimeType: selectedDocFile.type || 'application/octet-stream'
+        })
+      });
+
+      if (!res.ok) throw new Error('Falha ao processar documento.');
+      const data = await res.json();
+
+      setReviewData({
+        nome: data.nome || selectedDocFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' '),
+        artista: data.artista || '',
+        compositor: data.compositor || '',
+        tom: data.tom || 'C',
+        bpm: data.bpm || 80,
+        compasso: data.compasso || '4/4',
+        tipo: data.tipo || 'Entrada',
+        season: data.season || 'Tempo Comum',
+        ano: 'Geral',
+        letra: data.letraFormatada || data.letra || '',
+        tags: 'importado, documento, pdf-word',
+        fonte: `Arquivo: ${selectedDocFile.name}`,
+        nomeVersao: 'Versão do Documento'
+      });
+
+      setIsReviewOpen(true);
+      showNotification(`Arquivo "${selectedDocFile.name}" analisado com sucesso!`, 'success');
+    } catch (err: any) {
+      console.error("Erro no processamento do documento:", err);
+      showNotification('Falha ao processar arquivo. Verifique o documento e tente novamente.', 'error');
+    } finally {
+      setIsAnalyzingDoc(false);
+      setDocStatusMsg('');
+    }
+  };
+
   // Analyze pasted chord with AI
   const handleAnalyzePastedChords = async () => {
     if (!pastedText.trim()) {
@@ -493,11 +564,11 @@ export function SearchAndImportModal({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-800 bg-slate-950/40 px-5 pt-2 gap-2">
+        <div className="flex border-b border-slate-800 bg-slate-950/40 px-5 pt-2 gap-2 flex-wrap sm:flex-nowrap">
           <button
             id="tab-search-music"
             onClick={() => setActiveTab('search')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'search'
                 ? 'border-amber-500 text-amber-400 bg-slate-800/40 rounded-t-lg'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -507,9 +578,24 @@ export function SearchAndImportModal({
             Pesquisa Inteligente
           </button>
           <button
+            id="tab-file-import"
+            onClick={() => setActiveTab('file')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+              activeTab === 'file'
+                ? 'border-amber-500 text-amber-400 bg-slate-800/40 rounded-t-lg'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <UploadCloud className="w-4 h-4" />
+            Arquivo (PDF / Word)
+            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              PDF/DOCX
+            </span>
+          </button>
+          <button
             id="tab-paste-chords"
             onClick={() => setActiveTab('paste')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'paste'
                 ? 'border-amber-500 text-amber-400 bg-slate-800/40 rounded-t-lg'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -521,7 +607,7 @@ export function SearchAndImportModal({
           <button
             id="tab-import-link"
             onClick={() => setActiveTab('link')}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
               activeTab === 'link'
                 ? 'border-amber-500 text-amber-400 bg-slate-800/40 rounded-t-lg'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -756,6 +842,120 @@ export function SearchAndImportModal({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: ARQUIVOS PDF & WORD (DOCX/DOC/TXT/CHORDPRO) */}
+          {activeTab === 'file' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-start gap-3">
+                <UploadCloud className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-slate-300 space-y-1">
+                  <p className="font-semibold text-slate-100 flex items-center gap-2">
+                    Importação de Arquivos PDF e Word
+                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-[10px] font-bold">
+                      IA Maestro Ativada
+                    </span>
+                  </p>
+                  <p>
+                    Envie livretos de cantos, partituras em <strong>PDF</strong>, documentos do <strong>Microsoft Word (.docx, .doc)</strong> ou arquivos de texto (.txt, .chordpro). A inteligência artificial extrairá o texto, alinhará os acordes e classificará o momento e tempo litúrgico.
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload Drop Zone */}
+              <div className="border-2 border-dashed border-slate-700 hover:border-amber-500/60 rounded-2xl p-8 text-center space-y-4 bg-slate-950/60 transition-colors">
+                <div className="flex justify-center items-center gap-3 text-amber-400">
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl shadow-inner">
+                    <UploadCloud className="w-10 h-10 text-blue-400" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-sm font-bold text-slate-100">
+                    {selectedDocFile ? selectedDocFile.name : 'Arraste seu arquivo PDF ou Word aqui'}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Formatos suportados: <strong>.PDF</strong> (Adobe Acrobat), <strong>.DOCX / .DOC</strong> (Word), <strong>.CHORDPRO</strong>, <strong>.TXT</strong>
+                  </p>
+                </div>
+
+                <input
+                  type="file"
+                  id="input-file-doc-import"
+                  accept=".pdf,.docx,.doc,.txt,.chordpro,.cpro,.cho,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,text/plain"
+                  onChange={handleDocumentFileChange}
+                  className="hidden"
+                />
+
+                <div className="pt-2">
+                  <label
+                    htmlFor="input-file-doc-import"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+                  >
+                    <FileType className="w-4 h-4" />
+                    {selectedDocFile ? 'Trocar Arquivo Selecionado' : 'Selecionar Arquivo PDF / Word'}
+                  </label>
+                </div>
+              </div>
+
+              {/* Selected File Details */}
+              {selectedDocFile && (
+                <div className="p-4 bg-slate-900/90 border border-slate-700/80 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-200 truncate max-w-sm">
+                        {selectedDocFile.name}
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Tamanho: {(selectedDocFile.size / 1024).toFixed(1)} KB • Extensão: {selectedDocFile.name.split('.').pop()?.toUpperCase()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="px-2.5 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-black uppercase">
+                    Pronto para Análise
+                  </span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-2">
+                {selectedDocFile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocFile(null);
+                      setDocFileBase64(null);
+                    }}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl cursor-pointer"
+                  >
+                    Remover
+                  </button>
+                )}
+                <button
+                  id="btn-process-doc-file"
+                  type="button"
+                  onClick={handleAnalyzeDocument}
+                  disabled={isAnalyzingDoc || !selectedDocFile}
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isAnalyzingDoc ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>{docStatusMsg || 'Analisando documento...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Extrair e Estruturar Cifra com IA</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
 

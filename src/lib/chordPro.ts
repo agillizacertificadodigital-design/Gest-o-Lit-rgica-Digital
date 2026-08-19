@@ -293,3 +293,60 @@ export function chordProToAligned(chordProText: string): string {
 
   return result.join('\n');
 }
+
+/**
+ * Extrai somente a letra limpa de um texto com cifras ou ChordPro,
+ * preservando a ordem das estrofes, refrão e cabeçalhos de seção.
+ */
+export function chordProToLyricsOnly(text: string): string {
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const result: string[] = [];
+
+  const isPureChordLine = (line: string): boolean => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    // Se for cabeçalho de seção [Refrão], [Verso], etc., não é linha de acordes
+    if (/^\[(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estrofe|coda|inst|fim|pre-refrão|parte)[^\]]*\]$/i.test(trimmed)) {
+      return false;
+    }
+    const cleanNoBrackets = trimmed.replace(/[\[\]]/g, ' ').trim();
+    const tokens = cleanNoBrackets.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return false;
+    
+    // Se a maioria dos tokens forem acordes conhecidos
+    const chordCount = tokens.filter(t => /^[A-G][#b]?(?:m|maj|dim|aug|sus|add|[0-9]|\/|°|ø|Δ)*/.test(t)).length;
+    return chordCount / tokens.length >= 0.6;
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (result.length > 0 && result[result.length - 1] !== '') {
+        result.push('');
+      }
+      continue;
+    }
+
+    // Se for seção ex: [Refrão], [Verso 1]
+    if (/^\[(intro|refrão|bridge|ponte|verse|verso|final|outro|solo|interlúdio|coro|estrofe|coda|inst|fim|pre-refrão|parte)[^\]]*\]$/i.test(trimmed)) {
+      result.push(trimmed);
+      continue;
+    }
+
+    // Se for linha de acordes puros
+    if (isPureChordLine(line)) {
+      continue;
+    }
+
+    // Remove acordes embutidos em colchetes [G], [D/F#], etc., mas NÃO remove seções litúrgicas
+    const cleanLine = line.replace(/\[([A-G][#b]?[^\]]*)\]/g, '').trimEnd();
+    if (cleanLine.trim()) {
+      result.push(cleanLine);
+    }
+  }
+
+  return result.join('\n');
+}
+

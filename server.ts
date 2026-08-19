@@ -3,6 +3,9 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import mammoth from "mammoth";
+import * as pdfParseModule from "pdf-parse";
+const pdfParse: any = (pdfParseModule as any).default || pdfParseModule;
 
 dotenv.config();
 
@@ -76,6 +79,165 @@ ${text.substring(0, 8000)}`;
     } catch (err: any) {
       console.error("Erro na API de IA parse-chord:", err);
       res.status(500).json({ error: err.message || "Falha ao processar texto com IA" });
+    }
+  });
+
+  // AI Endpoint: Document & File Parser (PDF, Word DOCX/DOC, Images, TXT, ChordPro)
+  app.post("/api/ai/parse-document", async (req, res) => {
+    try {
+      const { fileBase64, fileName = "", mimeType = "" } = req.body;
+      if (!fileBase64) {
+        return res.status(400).json({ error: "Arquivo é obrigatório em formato base64." });
+      }
+
+      const cleanBase64 = fileBase64.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(cleanBase64, 'base64');
+      const lowerName = fileName.toLowerCase();
+      const isPdf = lowerName.endsWith('.pdf') || mimeType.includes('pdf');
+      const isDocx = lowerName.endsWith('.docx') || lowerName.endsWith('.doc') || mimeType.includes('word') || mimeType.includes('officedocument');
+      const isImage = lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png') || lowerName.endsWith('.webp') || mimeType.startsWith('image/');
+
+      let extractedText = "";
+
+      // 1. Extract raw text from Word documents via Mammoth
+      if (isDocx) {
+        try {
+          const docxResult = await mammoth.extractRawText({ buffer });
+          extractedText = docxResult.value || "";
+        } catch (mErr) {
+          console.warn("Aviso na extração docx via mammoth:", mErr);
+        }
+      }
+
+      // 2. Extract text from PDF via pdf-parse if needed
+      if (isPdf) {
+        try {
+          const pdfData = await pdfParse(buffer);
+          extractedText = pdfData.text || "";
+        } catch (pErr) {
+          console.warn("Aviso na extração de texto do PDF via pdf-parse:", pErr);
+        }
+      }
+
+      // 3. Fallback for plain text files
+      if (!isPdf && !isDocx && !isImage && !extractedText) {
+        try {
+          extractedText = buffer.toString('utf-8');
+        } catch (tErr) {
+          console.warn("Aviso na conversão de texto UTF-8:", tErr);
+        }
+      }
+
+      const maestroSystemPrompt = `Você é um Maestro e Especialista em Música Litúrgica Católica, Harmonia Funcional, Transposição e Cifragem Profissional.
+Você deve analisar o arquivo/documento (${fileName}) com a cifra/partitura litúrgica e retornar um JSON estrito:
+{
+  "nome": "Título provável da música (string)",
+  "artista": "Artista, compositor ou ministério provável (string)",
+  "compositor": "Compositor se identificado ou vazio",
+  "tom": "Tom principal identificado (ex: C, G, D, Em, Am, F#m, Bb, etc.)",
+  "bpm": 80,
+  "compasso": "Fórmula de compasso provável (ex: 4/4, 3/4, 6/8, 2/4)",
+  "tipo": "Momento litúrgico católico sugerido (Entrada, Ato Penitencial, Glória, Salmo, Aclamação, Ofertório, Santo, Cordeiro, Comunhão, Pós-Comunhão, Adoração, Mariana, Final)",
+  "season": "Tempo litúrgico sugerido (Tempo Comum, Advento, Natal, Quaresma, Semana Santa, Páscoa, Solenidades, Geral)",
+  "ano": "Geral",
+  "letraFormatada": "Cifra completa, profissional e estruturada com seções [Intro], [Verso 1], [Refrão], [Verso 2], [Ponte], [Final] com acordes alinhados perfeitamente sobre a letra ou em formato ChordPro [C]Letra...",
+  "observacoes": "Notas sobre a harmonia, cadências e sugestões de execução"
+}
+
+Diretrizes de Músico Profissional:
+- Corrija acordes aglutinados e nomenclaturas fora do padrão.
+- Mantenha a coerência harmônica e enarmonia (em Fá maior use Bb, não A#; preserve baixos invertidos como C/E, G/B, D/F#).
+- Preserve seções com clareza (INTRO, VERSO, REFRÃO, PONTE, FINAL).
+- Retorne apenas o JSON.`;
+
+      // Check Gemini API Availability
+      if (process.env.GEMINI_API_KEY) {
+        const ai = getAi();
+
+        if (isPdf) {
+          // Native PDF parsing directly with Gemini Multimodal
+          try {
+            const response = await ai.models.generateContent({
+              model: 'gemini-3.7-flash',
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    {
+                      inlineData: {
+                        data: cleanBase64,
+                        mimeType: 'application/pdf'
+                      }
+                    },
+                    { text: maestroSystemPrompt }
+                  ]
+                }
+              ],
+              config: { responseMimeType: "application/json" }
+            });
+
+            const parsed = JSON.parse(response.text || "{}");
+            return res.json(parsed);
+          } catch (pdfAiErr) {
+            console.warn("Falha no inlineData PDF, tentando com texto extraído:", pdfAiErr);
+          }
+        }
+
+        if (isImage) {
+          // Multimodal image OCR
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.7-flash',
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    inlineData: {
+                      data: cleanBase64,
+                      mimeType: mimeType || 'image/jpeg'
+                    }
+                  },
+                  { text: maestroSystemPrompt }
+                ]
+              }
+            ],
+            config: { responseMimeType: "application/json" }
+          });
+
+          const parsed = JSON.parse(response.text || "{}");
+          return res.json(parsed);
+        }
+
+        // For Word (DOCX) or text-extracted documents
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.7-flash',
+          contents: `${maestroSystemPrompt}\n\nDocumento extraído (${fileName}):\n${extractedText.substring(0, 15000)}`,
+          config: { responseMimeType: "application/json" }
+        });
+
+        const parsed = JSON.parse(response.text || "{}");
+        return res.json(parsed);
+      }
+
+      // Offline / No API Key Fallback using local extracted text
+      const cleanTitle = fileName.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      res.json({
+        nome: cleanTitle,
+        artista: "",
+        compositor: "",
+        tom: "C",
+        bpm: 80,
+        compasso: "4/4",
+        tipo: "Entrada",
+        season: "Tempo Comum",
+        ano: "Geral",
+        letraFormatada: extractedText || "Cifra extraída do arquivo. Ajuste os acordes se necessário.",
+        observacoes: `Documento importado localmente via ${fileName}`
+      });
+
+    } catch (err: any) {
+      console.error("Erro no processamento do documento:", err);
+      res.status(500).json({ error: err.message || "Falha ao processar arquivo" });
     }
   });
 

@@ -31,8 +31,9 @@ import {
 } from 'lucide-react';
 import { AgendaItem, Canto, RepertorioItem, EscalaMembro, SeasonInfo } from '../types';
 import { NOTES_SHARP, NOTE_MAP, INSTRUMENT_OPTIONS } from '../constants';
-import { generateRepertoirePDF } from '../lib/pdfGenerator';
+import { generateFolhetoPDF, generateRepertoirePDF } from '../lib/pdfGenerator';
 import { saveRepertoireOffline, isRepertoireCachedOffline, removeOfflinePackage } from '../lib/offlineStorage';
+import { FolhetoModal } from './FolhetoModal';
 
 interface RepertoireManagerProps {
   agenda: AgendaItem[];
@@ -64,6 +65,7 @@ export function RepertoireManager({
     agenda.length > 0 ? agenda[0].id : ''
   );
 
+  const [isFolhetoModalOpen, setIsFolhetoModalOpen] = useState(false);
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const [aiSuggestionModal, setAiSuggestionModal] = useState<{
     justificativa: string;
@@ -205,25 +207,25 @@ export function RepertoireManager({
     }
   };
 
-  // PDF Export Handlers (Section 24)
+  // PDF Export Handlers (Section 24 & Modo Folheto)
   const handleExportPdfSummary = () => {
     if (!currentCelebration) return;
-    generateRepertoirePDF({
-      type: 'summary',
+    generateFolhetoPDF({
       agenda: currentCelebration,
-      cantos
+      cantos,
+      mode: 'lyrics'
     });
-    showNotification('PDF resumido gerado!', 'success');
+    showNotification('Folheto Somente Letras gerado em PDF!', 'success');
   };
 
   const handleExportPdfFullChords = () => {
     if (!currentCelebration) return;
-    generateRepertoirePDF({
-      type: 'full',
+    generateFolhetoPDF({
       agenda: currentCelebration,
-      cantos
+      cantos,
+      mode: 'chords'
     });
-    showNotification('PDF completo com cifras gerado com sucesso!', 'success');
+    showNotification('Folheto Completo com Cifras gerado em PDF!', 'success');
   };
 
   // AI Repertoire Suggestion (Section 28)
@@ -342,6 +344,17 @@ export function RepertoireManager({
             {/* Top Celebration Actions */}
             <div className="flex flex-wrap items-center gap-2">
               
+              {/* MODO FOLHETO BUTTON (PROMINENT) */}
+              <button
+                id="btn-open-folheto-modal"
+                onClick={() => setIsFolhetoModalOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-blue-500/25 active:scale-95 transition-all cursor-pointer"
+                title="Abrir o Modo Folheto (Visualizar, Imprimir e Baixar PDF com Letras ou Cifras)"
+              >
+                <FileText className="w-4 h-4 text-blue-200" />
+                📄 Modo Folheto
+              </button>
+
               {/* STAGE MODE PLAY */}
               <button
                 id="btn-open-stage-celebration"
@@ -353,7 +366,7 @@ export function RepertoireManager({
                     showNotification('Adicione músicas ao repertório primeiro.', 'info');
                   }
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer border border-slate-700"
                 title="Abrir todas as músicas no Modo Palco para a celebração"
               >
                 <Play className="w-4 h-4 fill-white" />
@@ -384,20 +397,22 @@ export function RepertoireManager({
                 )}
               </button>
 
-              {/* PDF EXPORT BUTTONS */}
+              {/* PDF QUICK EXPORT BUTTONS */}
               <button
+                id="btn-pdf-folheto-lyrics"
                 onClick={handleExportPdfSummary}
                 className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
-                title="Gerar PDF Resumido da escala e músicas"
+                title="Baixar PDF do Folheto Somente Letras"
               >
                 <FileText className="w-3.5 h-3.5" />
-                PDF Resumo
+                PDF Letras
               </button>
 
               <button
+                id="btn-pdf-folheto-chords"
                 onClick={handleExportPdfFullChords}
                 className="flex items-center gap-1 px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-200/60 dark:border-indigo-800 transition-all cursor-pointer"
-                title="Gerar PDF Completo com todas as cifras transpostas"
+                title="Baixar PDF Completo com Cifras no tom do repertório"
               >
                 <Download className="w-3.5 h-3.5" />
                 PDF Cifras
@@ -814,6 +829,15 @@ export function RepertoireManager({
           </div>
         </div>
       )}
+
+      {/* MODO FOLHETO MODAL PREVIEW & DOWNLOAD */}
+      <FolhetoModal
+        isOpen={isFolhetoModalOpen}
+        onClose={() => setIsFolhetoModalOpen(false)}
+        agenda={currentCelebration}
+        cantos={cantos}
+        showNotification={showNotification}
+      />
 
     </div>
   );
