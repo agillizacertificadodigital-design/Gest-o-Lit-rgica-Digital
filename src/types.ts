@@ -5,6 +5,9 @@
 
 export type LiturgicalSeason = string;
 
+// Re-export Provider architectures
+export * from './types/providers';
+
 export interface NoteOnStaff {
   id: string;
   type: string; // 'semibreve', 'minima', etc.

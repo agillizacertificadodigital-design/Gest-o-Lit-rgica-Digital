@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   Sparkles, 
@@ -29,10 +29,17 @@ import {
   Calendar,
   CheckCircle2,
   UploadCloud,
-  FileType
+  FileType,
+  Globe,
+  Radio,
+  Play,
+  Pause,
+  Filter
 } from 'lucide-react';
 import { Canto, SeasonInfo, SearchResult, MusicDetails, CantoVersao, LinkAnalysisResult } from '../types';
-import { MusicProviderRegistry, LITURGICAL_SONG_CATALOG } from '../lib/musicProviders';
+import { musicProviderRegistry } from '../lib/providers/providerRegistry';
+import { UnifiedSearchResult, MusicProviderInfo } from '../types/providers';
+import { normalizeSearchString } from '../lib/providers/baseProvider';
 import { parseChordsFromText, textToChordPro, transposeChordPro } from '../lib/chordPro';
 import { NOTES_SHARP, INITIAL_CATEGORIES } from '../constants';
 
@@ -67,17 +74,38 @@ export function SearchAndImportModal({
   const [isAnalyzingDoc, setIsAnalyzingDoc] = useState(false);
   const [docStatusMsg, setDocStatusMsg] = useState('');
 
-  // Search State
+  // Search State & Filter
   const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [searchFilter, setSearchFilter] = useState<'all' | 'library' | 'liturgical' | 'external'>('all');
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<{ internal: SearchResult[]; external: SearchResult[] }>({
-    internal: [],
-    external: []
-  });
+  const [internalResults, setInternalResults] = useState<Canto[]>([]);
+  const [externalResults, setExternalResults] = useState<UnifiedSearchResult[]>([]);
+  const [providerStatuses, setProviderStatuses] = useState<{ id: string; name: string; status: string; count: number }[]>([]);
+  const [providersList, setProvidersList] = useState<MusicProviderInfo[]>(() => musicProviderRegistry.getProviders());
+  const [showProvidersPopover, setShowProvidersPopover] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Audio Preview State (for Apple iTunes preview clips)
+  const [activeAudioPreview, setActiveAudioPreview] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   // View Chord / Preview State
-  const [previewSong, setPreviewSong] = useState<MusicDetails | null>(null);
+  const [previewSong, setPreviewSong] = useState<{
+    id: string;
+    title: string;
+    artist: string;
+    composer?: string;
+    key: string;
+    chords: string;
+    bpm?: number;
+    compasso?: string;
+    source: string;
+    externalUrl?: string;
+    suggestedMoment?: string;
+    suggestedSeason?: string;
+    isExternalReference?: boolean;
+    isImportable?: boolean;
+  } | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewKey, setPreviewKey] = useState<string>('C');
 
@@ -112,7 +140,7 @@ export function SearchAndImportModal({
     ano: 'Geral',
     letra: '',
     tags: 'importado, liturgia',
-    fonte: 'Acervo Litúrgico',
+    fonte: 'Acervo Litúrgico Comunitário',
     nomeVersao: 'Versão Original'
   });
 
@@ -129,44 +157,49 @@ export function SearchAndImportModal({
   const [isAnalyzingLink, setIsAnalyzingLink] = useState(false);
   const [linkAnalysis, setLinkAnalysis] = useState<LinkAnalysisResult | null>(null);
 
+  // Debounce ref
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (isOpen) {
+      setProvidersList(musicProviderRegistry.getProviders());
       if (initialQuery) {
         setSearchQuery(initialQuery);
         handleExecuteSearch(initialQuery);
       } else {
-        // Show initial curated popular songs
         loadInitialCatalog();
       }
     }
   }, [isOpen, initialQuery]);
 
-  const loadInitialCatalog = () => {
-    const initialExternal = LITURGICAL_SONG_CATALOG.slice(0, 6).map(m => ({
-      id: m.id,
-      title: m.title,
-      artist: m.artist,
-      composer: m.composer,
-      key: m.key,
-      source: m.source,
-      sourceType: 'authorized_db' as const,
-      previewLyrics: m.title,
-      tempoLiturgicoSugerido: m.suggestedSeason,
-      momentoSugerido: m.suggestedMoment,
-      bpm: m.bpm,
-      compasso: m.compasso
-    }));
+  // Clean audio on unmount or close
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
-    setSearchResults({
-      internal: [],
-      external: initialExternal
-    });
+  const loadInitialCatalog = async () => {
+    // 1. Amostra de cantos da própria biblioteca
+    setInternalResults(existingCantos.slice(0, 4));
+
+    // 2. Amostra de cantos do acervo litúrgico comunitário
+    try {
+      const { results, providerStatus } = await musicProviderRegistry.searchAll({ query: '' });
+      setExternalResults(results);
+      setProviderStatuses(providerStatus);
+    } catch {
+      setExternalResults([]);
+    }
     setHasSearched(false);
   };
 
   if (!isOpen) return null;
 
-  // Search execution
+  // Search execution with Debounce & Priority Order
   const handleExecuteSearch = async (queryText: string) => {
     const q = queryText.trim();
     if (!q) {
@@ -177,85 +210,113 @@ export function SearchAndImportModal({
     setIsSearching(true);
     setHasSearched(true);
 
+    // 1. Pesquisa prioritária e instantânea na BIBLIOTECA INTERNA (Regra 6 e 25)
+    const normQ = normalizeSearchString(q);
+    const matchedInternal = existingCantos.filter(c => {
+      const nTitle = normalizeSearchString(c.nome);
+      const nArtist = normalizeSearchString(c.artista || '');
+      const nComposer = normalizeSearchString(c.compositor || '');
+      const nLyrics = normalizeSearchString(c.letra || '');
+      const nTags = (c.tags || []).map(t => normalizeSearchString(t)).join(' ');
+      return nTitle.includes(normQ) || nArtist.includes(normQ) || nComposer.includes(normQ) || nLyrics.includes(normQ) || nTags.includes(normQ);
+    });
+    setInternalResults(matchedInternal);
+
+    // 2. Consulta Provedores Externos Reais em paralelo (Regra 3, 6 e 13)
     try {
-      const results = await MusicProviderRegistry.searchAll(q, existingCantos);
-      setSearchResults(results);
+      const { results, providerStatus } = await musicProviderRegistry.searchAll({
+        query: q,
+        searchType: 'all'
+      });
+      setExternalResults(results);
+      setProviderStatuses(providerStatus);
     } catch (err) {
-      console.error("Erro na pesquisa:", err);
-      showNotification('Não foi possível completar a busca externa.', 'error');
+      console.warn("Aviso na busca externa:", err);
+      showNotification('Não foi possível consultar alguns provedores externos agora.', 'info');
     } finally {
       setIsSearching(false);
     }
   };
 
+  // Toggle audio preview (Apple iTunes 30s official sample)
+  const handleToggleAudioPreview = (audioUrl: string) => {
+    if (activeAudioPreview === audioUrl) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setActiveAudioPreview(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const audio = new Audio(audioUrl);
+      audio.play().catch(e => console.warn('Erro ao tocar áudio:', e));
+      audio.onended = () => setActiveAudioPreview(null);
+      audioRef.current = audio;
+      setActiveAudioPreview(audioUrl);
+    }
+  };
+
   // Preview Chord details
-  const handleOpenPreview = async (item: SearchResult) => {
-    if (item.isInternal && item.internalCanto) {
+  const handleOpenPreview = async (item: UnifiedSearchResult | Canto) => {
+    if ('letra' in item && !('providerId' in item)) {
+      // Canto da biblioteca interna
+      const canto = item as Canto;
       setPreviewSong({
-        id: String(item.internalCanto.id),
-        title: item.internalCanto.nome,
-        artist: item.internalCanto.artista || 'Minha Biblioteca',
-        composer: item.internalCanto.compositor,
-        key: item.internalCanto.tom || 'C',
-        chords: item.internalCanto.letra || '',
-        bpm: item.internalCanto.bpm,
-        compasso: item.internalCanto.compasso,
+        id: String(canto.id),
+        title: canto.nome,
+        artist: canto.artista || 'Minha Biblioteca',
+        composer: canto.compositor,
+        key: canto.tom || 'C',
+        chords: canto.letra || '',
+        bpm: canto.bpm,
+        compasso: canto.compasso,
         source: 'Minha Biblioteca Musical',
-        suggestedMoment: item.internalCanto.tipo,
-        suggestedSeason: item.internalCanto.season
+        suggestedMoment: canto.tipo,
+        suggestedSeason: canto.season,
+        isExternalReference: false,
+        isImportable: false
       });
-      setPreviewKey(item.internalCanto.tom || 'C');
+      setPreviewKey(canto.tom || 'C');
       setIsPreviewOpen(true);
       return;
     }
 
-    // Check built-in catalog
-    const catalogItem = LITURGICAL_SONG_CATALOG.find(c => c.id === item.id || c.title.toLowerCase() === item.title.toLowerCase());
-    if (catalogItem) {
-      setPreviewSong(catalogItem);
-      setPreviewKey(catalogItem.key);
-      setIsPreviewOpen(true);
-      return;
-    }
-
-    // If result came from search with chords payload
+    const unified = item as UnifiedSearchResult;
     setPreviewSong({
-      id: item.id,
-      title: item.title,
-      artist: item.artist,
-      composer: item.composer,
-      key: item.key || 'C',
-      chords: `[Intro]\n${item.key || 'C'}  G/B  Am  F\n\n[Verso 1]\n${item.key || 'C'}              G\n${item.title}\nAm             F\n${item.previewLyrics || 'Letra em estruturação...'}\n\n[Refrão]\n${item.key || 'C'}              G\n${item.title}\nAm             F\nGlória e Louvor a Ti, Senhor!`,
-      bpm: item.bpm || 80,
-      compasso: item.compasso || '4/4',
-      source: item.source,
-      suggestedMoment: item.momentoSugerido || 'Entrada',
-      suggestedSeason: item.tempoLiturgicoSugerido || 'Tempo Comum'
+      id: unified.id,
+      title: unified.title,
+      artist: unified.artist,
+      composer: unified.composer,
+      key: unified.key || 'C',
+      chords: unified.chords || `${unified.key || 'C'}   G   Am   F\n\n[Verso]\n${unified.title}\nLetra fornecida pela fonte oficial.`,
+      bpm: unified.bpm || 80,
+      compasso: unified.compasso || '4/4',
+      source: unified.providerName,
+      externalUrl: unified.externalUrl,
+      suggestedMoment: unified.suggestedMoment || 'Entrada',
+      suggestedSeason: unified.suggestedSeason || 'Tempo Comum',
+      isExternalReference: unified.isExternalReference,
+      isImportable: unified.isImportable
     });
-    setPreviewKey(item.key || 'C');
+    setPreviewKey(unified.key || 'C');
     setIsPreviewOpen(true);
   };
 
   // Import to Library button clicked
-  const handleInitiateImport = (item: SearchResult | MusicDetails) => {
-    const title = 'title' in item ? item.title : (item as any).nome;
-    const artist = 'artist' in item ? item.artist : (item as any).artista || '';
-    const composer = item.composer || '';
-    const key = ('key' in item ? item.key : (item as any).tom) || 'C';
+  const handleInitiateImport = (item: any) => {
+    if (!item) return;
+    const title = item.title || item.nome || '';
+    const artist = item.artist || item.artista || '';
+    const composer = item.composer || item.compositor || '';
+    const key = item.key || item.tom || 'C';
     const bpm = item.bpm || 80;
     const compasso = item.compasso || '4/4';
-    const source = item.source || 'Importação';
-    const moment = ('suggestedMoment' in item ? item.suggestedMoment : (item as any).tipo) || 'Entrada';
-    const season = ('suggestedSeason' in item ? item.suggestedSeason : (item as any).season) || 'Tempo Comum';
-    
-    // Find chords
-    let chords = '';
-    if ('chords' in item && item.chords) {
-      chords = item.chords;
-    } else {
-      const catalogItem = LITURGICAL_SONG_CATALOG.find(c => c.title.toLowerCase() === title.toLowerCase());
-      chords = catalogItem ? catalogItem.chords : `${key}   G   Am   F\n${title}\n`;
-    }
+    const source = item.providerName || item.source || item.fonte || 'Provedor Externo';
+    const moment = item.suggestedMoment || item.tipo || 'Entrada';
+    const season = item.suggestedSeason || item.season || 'Tempo Comum';
+    const chords = item.chords || item.letra || `${key}   G   Am   F\n${title}\n`;
 
     // Check duplicate in user's library
     const existing = existingCantos.find(c => 
@@ -277,7 +338,7 @@ export function SearchAndImportModal({
       tags: `importado, ${moment.toLowerCase()}`,
       fonte: source,
       idExterno: item.id,
-      urlOriginal: (item as any).url || (item as any).sourceUrl || '',
+      urlOriginal: item.externalUrl || '',
       nomeVersao: 'Versão Principal'
     };
 
@@ -543,14 +604,44 @@ export function SearchAndImportModal({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                BUSCAR MÚSICAS E CIFRAS
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Multiprovedor Autorizado
-                </span>
-              </h2>
-              <p className="text-xs text-slate-400">
-                Pesquise na biblioteca interna, acervo litúrgico canônico e motor de harmonização com transposição instantânea.
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-slate-100">
+                  BUSCAR MÚSICAS E CIFRAS
+                </h2>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowProvidersPopover(!showProvidersPopover)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+                    <span>{providersList.filter(p => p.enabled).length} Provedores Conectados</span>
+                    <Info className="w-3 h-3 text-emerald-400/80" />
+                  </button>
+
+                  {/* Provedores Popover */}
+                  {showProvidersPopover && (
+                    <div className="absolute left-0 top-full mt-2 w-72 p-3 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-30 space-y-2 text-xs">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 font-bold text-slate-200">
+                        <span>Provedores Ativos</span>
+                        <span className="text-[10px] text-emerald-400 font-normal">Verificados</span>
+                      </div>
+                      {providersList.map(p => (
+                        <div key={p.id} className="flex items-center justify-between py-1 border-b border-slate-800/50 last:border-0">
+                          <div>
+                            <p className="font-medium text-slate-100">{p.name}</p>
+                            <p className="text-[10px] text-slate-400">{p.description}</p>
+                          </div>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${p.enabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
+                            {p.enabled ? 'Ativo' : 'Desativado'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Pesquise na sua biblioteca e em provedores reais autorizados (Apple Music/iTunes, MusicBrainz, Acervo Litúrgico e referências).
               </p>
             </div>
           </div>
@@ -575,7 +666,7 @@ export function SearchAndImportModal({
             }`}
           >
             <Search className="w-4 h-4" />
-            Pesquisa Inteligente
+            Pesquisa Multiprovedor
           </button>
           <button
             id="tab-file-import"
@@ -657,20 +748,70 @@ export function SearchAndImportModal({
                     <span>Pesquisar</span>
                   </button>
                 </div>
-                <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-                  <span className="text-slate-500">Sugestões rápidas:</span>
-                  {['Segura na Mão de Deus', 'Ninguém Te Ama Como Eu', 'Glória', 'Cordeiro de Deus', 'Shalom'].map((sug) => (
+
+                {/* Filter Pills */}
+                <div className="flex items-center justify-between flex-wrap gap-2 mt-3 text-xs">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Filter className="w-3.5 h-3.5" /> Filtrar:
+                    </span>
                     <button
-                      key={sug}
-                      onClick={() => {
-                        setSearchQuery(sug);
-                        handleExecuteSearch(sug);
-                      }}
-                      className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md transition-colors"
+                      onClick={() => setSearchFilter('all')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                        searchFilter === 'all'
+                          ? 'bg-amber-500 text-slate-950 font-bold'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
                     >
-                      {sug}
+                      Todas as Fontes ({internalResults.length + externalResults.length})
                     </button>
-                  ))}
+                    <button
+                      onClick={() => setSearchFilter('library')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                        searchFilter === 'library'
+                          ? 'bg-emerald-600 text-white font-bold'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Minha Biblioteca ({internalResults.length})
+                    </button>
+                    <button
+                      onClick={() => setSearchFilter('liturgical')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                        searchFilter === 'liturgical'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Acervo Litúrgico ({externalResults.filter(r => r.providerId === 'community-catalog').length})
+                    </button>
+                    <button
+                      onClick={() => setSearchFilter('external')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                        searchFilter === 'external'
+                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Provedores Externos ({externalResults.filter(r => r.providerId !== 'community-catalog').length})
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <span>Sugestões:</span>
+                    {['Segura na Mão de Deus', 'Glória', 'Cordeiro', 'Shalom'].map((sug) => (
+                      <button
+                        key={sug}
+                        onClick={() => {
+                          setSearchQuery(sug);
+                          handleExecuteSearch(sug);
+                        }}
+                        className="px-2 py-0.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded transition-colors"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -679,48 +820,59 @@ export function SearchAndImportModal({
                 <div className="p-8 text-center bg-slate-800/30 rounded-xl border border-slate-800 flex flex-col items-center justify-center space-y-3">
                   <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
                   <p className="text-sm font-medium text-slate-200">
-                    Consultando Minha Biblioteca, Acervo Litúrgico Canônico e Motor IA...
+                    Consultando Minha Biblioteca e Provedores Conectados em tempo real...
                   </p>
                   <p className="text-xs text-slate-400">
-                    Analisando funções harmônicas, armaduras de clave e alinhamento métrico.
+                    Apple iTunes, MusicBrainz, Acervo Litúrgico Comunitário e Cifra Club.
                   </p>
                 </div>
               )}
 
               {/* 1. Internal Results Section (Minha Biblioteca Musical) */}
-              {!isSearching && searchResults.internal.length > 0 && (
+              {!isSearching && (searchFilter === 'all' || searchFilter === 'library') && internalResults.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
                       <BookOpen className="w-4 h-4" />
-                      1. Encontrado na Minha Biblioteca Musical ({searchResults.internal.length})
+                      1. Encontrado na Minha Biblioteca Musical ({internalResults.length})
                     </h3>
+                    <span className="text-[11px] font-semibold text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      ✓ Já cadastrado no seu repertório
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {searchResults.internal.map(item => (
+                    {internalResults.map(item => (
                       <div 
                         key={`int_${item.id}`}
                         className="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl hover:border-emerald-500/50 transition-all flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2">
-                            <h4 className="font-bold text-slate-100 text-base">{item.title}</h4>
+                            <div>
+                              <h4 className="font-bold text-slate-100 text-base">{item.nome}</h4>
+                              <p className="text-xs text-slate-300 mt-0.5">
+                                <span className="text-slate-400">Artista:</span> {item.artista || 'Minha Biblioteca'}
+                                {item.compositor && ` • Comp: ${item.compositor}`}
+                              </p>
+                            </div>
                             <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold rounded">
-                              Tom: {item.key}
+                              Tom: {item.tom || 'C'}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-300 mt-1">
-                            <span className="text-slate-400">Artista:</span> {item.artist}
-                            {item.composer && ` • Comp: ${item.composer}`}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2 text-xs">
+
+                          <div className="flex items-center gap-2 mt-2.5 text-xs">
                             <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded">
-                              {item.momentoSugerido || 'Liturgia'}
+                              {item.tipo || 'Liturgia'}
                             </span>
                             <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded">
-                              {item.tempoLiturgicoSugerido || 'Tempo Comum'}
+                              {item.season || 'Tempo Comum'}
                             </span>
+                            {item.bpm && (
+                              <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded">
+                                {item.bpm} BPM
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -729,13 +881,13 @@ export function SearchAndImportModal({
                             onClick={() => handleOpenPreview(item)}
                             className="flex-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5 text-emerald-400" />
                             Visualizar Cifra
                           </button>
-                          {onSelectExistingCanto && item.internalCanto && (
+                          {onSelectExistingCanto && (
                             <button
                               onClick={() => {
-                                onSelectExistingCanto(item.internalCanto!);
+                                onSelectExistingCanto(item);
                                 onClose();
                               }}
                               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-colors"
@@ -750,45 +902,82 @@ export function SearchAndImportModal({
                 </div>
               )}
 
-              {/* 2. External & Canonical Results Section */}
-              {!isSearching && (
+              {/* 2. External & Multi-provider Results Section */}
+              {!isSearching && (searchFilter === 'all' || searchFilter === 'liturgical' || searchFilter === 'external') && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
-                      2. Provedores Externos & Acervo Litúrgico ({searchResults.external.length})
+                      2. Provedores Externos & Acervo ({
+                        externalResults.filter(r => {
+                          if (searchFilter === 'liturgical') return r.providerId === 'community-catalog';
+                          if (searchFilter === 'external') return r.providerId !== 'community-catalog';
+                          return true;
+                        }).length
+                      })
                     </h3>
                     <span className="text-xs text-slate-400 flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      Integração autorizada & Harmonização Litúrgica
+                      Fontes verificadas e transparentes
                     </span>
                   </div>
 
-                  {searchResults.external.length === 0 ? (
+                  {externalResults.length === 0 && internalResults.length === 0 ? (
                     <div className="p-8 text-center bg-slate-800/20 rounded-xl border border-slate-800 text-slate-400 text-sm">
-                      Nenhuma música externa encontrada para "{searchQuery}". Tente usar a aba <strong>"Colar Cifra"</strong> para estruturar qualquer cifra instantaneamente.
+                      Nenhum resultado encontrado para "{searchQuery}". Tente usar as abas <strong>"Colar Cifra"</strong> ou <strong>"Arquivo (PDF/Word)"</strong> para importar imediatamente.
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                      {searchResults.external.map((item) => (
+                      {externalResults
+                        .filter(r => {
+                          if (searchFilter === 'liturgical') return r.providerId === 'community-catalog';
+                          if (searchFilter === 'external') return r.providerId !== 'community-catalog';
+                          return true;
+                        })
+                        .map((item) => (
                         <div 
-                          key={`ext_${item.id}`}
+                          key={`ext_${item.providerId}_${item.id}`}
                           className="p-4 bg-slate-800/50 border border-slate-700/70 hover:border-amber-500/40 rounded-xl transition-all flex flex-col justify-between group shadow-sm hover:shadow-md"
                         >
                           <div>
-                            <div className="flex items-start justify-between gap-2">
-                              <h4 className="font-bold text-slate-100 text-base group-hover:text-amber-300 transition-colors">
-                                {item.title}
-                              </h4>
-                              <span className="px-2 py-0.5 bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-bold rounded">
-                                Tom: {item.key || 'C'}
+                            <div className="flex items-start justify-between gap-3">
+                              {item.albumCoverUrl && (
+                                <img 
+                                  src={item.albumCoverUrl} 
+                                  alt={item.title} 
+                                  className="w-12 h-12 rounded-lg object-cover border border-slate-700 shrink-0"
+                                  referrerPolicy="no-referrer"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-slate-100 text-base group-hover:text-amber-300 transition-colors truncate">
+                                  {item.title}
+                                </h4>
+                                <p className="text-xs text-slate-300 truncate">
+                                  <strong className="text-slate-400">Artista:</strong> {item.artist}
+                                </p>
+                              </div>
+                              <span className="px-2 py-0.5 bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-bold rounded shrink-0">
+                                {item.key ? `Tom: ${item.key}` : 'Cifra'}
                               </span>
                             </div>
 
-                            <div className="mt-1 space-y-0.5 text-xs text-slate-300">
-                              <p><strong className="text-slate-400">Artista:</strong> {item.artist}</p>
+                            <div className="mt-2 space-y-1 text-xs text-slate-300">
                               {item.composer && <p><strong className="text-slate-400">Compositor:</strong> {item.composer}</p>}
-                              <p><strong className="text-slate-400">Fonte:</strong> <span className="text-amber-400/90">{item.source}</span></p>
+                              <p className="flex items-center gap-1.5 flex-wrap">
+                                <strong className="text-slate-400">Fonte:</strong> 
+                                <span className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
+                                  item.providerId === 'community-catalog' 
+                                    ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                                    : item.providerId === 'itunes'
+                                    ? 'bg-pink-500/10 text-pink-300 border border-pink-500/20'
+                                    : item.providerId === 'musicbrainz'
+                                    ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                                    : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                                }`}>
+                                  {item.providerName}
+                                </span>
+                              </p>
                             </div>
 
                             {item.previewLyrics && (
@@ -797,15 +986,15 @@ export function SearchAndImportModal({
                               </p>
                             )}
 
-                            <div className="flex items-center gap-2 mt-2.5 text-xs">
-                              {item.momentoSugerido && (
+                            <div className="flex items-center gap-2 mt-2.5 text-xs flex-wrap">
+                              {item.suggestedMoment && (
                                 <span className="px-2 py-0.5 bg-slate-700/50 text-slate-200 rounded">
-                                  {item.momentoSugerido}
+                                  {item.suggestedMoment}
                                 </span>
                               )}
-                              {item.tempoLiturgicoSugerido && (
+                              {item.suggestedSeason && (
                                 <span className="px-2 py-0.5 bg-slate-700/50 text-slate-300 rounded">
-                                  {item.tempoLiturgicoSugerido}
+                                  {item.suggestedSeason}
                                 </span>
                               )}
                               {item.bpm && (
@@ -813,10 +1002,28 @@ export function SearchAndImportModal({
                                   {item.bpm} BPM
                                 </span>
                               )}
+                              {item.audioPreviewUrl && (
+                                <button
+                                  onClick={() => handleToggleAudioPreview(item.audioPreviewUrl!)}
+                                  className="px-2 py-0.5 bg-pink-500/20 text-pink-300 border border-pink-500/30 rounded flex items-center gap-1 hover:bg-pink-500/30 transition-colors"
+                                >
+                                  {activeAudioPreview === item.audioPreviewUrl ? (
+                                    <>
+                                      <Pause className="w-3 h-3" />
+                                      <span>Pausar Prévia</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="w-3 h-3" />
+                                      <span>Ouvir 30s</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
                             </div>
                           </div>
 
-                          {/* Action Buttons as requested */}
+                          {/* Action Buttons transparently adapted to provider capability */}
                           <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-700/60">
                             <button
                               id={`btn-view-chord-${item.id}`}
@@ -824,17 +1031,40 @@ export function SearchAndImportModal({
                               className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors border border-slate-700"
                             >
                               <Eye className="w-3.5 h-3.5 text-amber-400" />
-                              Visualizar Cifra
+                              Visualizar
                             </button>
 
-                            <button
-                              id={`btn-import-library-${item.id}`}
-                              onClick={() => handleInitiateImport(item)}
-                              className="flex-1 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                              Importar para Minha Biblioteca
-                            </button>
+                            {item.isImportable ? (
+                              <button
+                                id={`btn-import-library-${item.id}`}
+                                onClick={() => handleInitiateImport(item)}
+                                className="flex-1 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                Importar para Biblioteca
+                              </button>
+                            ) : item.externalUrl ? (
+                              <a
+                                href={item.externalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors text-center"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Abrir na Fonte
+                              </a>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setActiveTab('paste');
+                                  setPastedText(`${item.title}\n${item.artist}\n`);
+                                }}
+                                className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                              >
+                                <Copy className="w-3.5 h-3.5 text-amber-400" />
+                                Estruturar Cifra
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}

@@ -18,10 +18,18 @@ import {
   Check, 
   ShieldCheck,
   Moon,
-  Sun
+  Sun,
+  Globe,
+  Radio,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  HelpCircle
 } from 'lucide-react';
 import { User as FirebaseUser, updateProfile, updateEmail, updatePassword } from 'firebase/auth';
 import { Canto, AgendaItem, SeasonInfo } from '../types';
+import { musicProviderRegistry } from '../lib/providers/providerRegistry';
+import { MusicProviderInfo } from '../types/providers';
 
 interface SettingsViewProps {
   user: FirebaseUser | null;
@@ -53,6 +61,16 @@ export function SettingsView({
   const [email, setEmail] = useState(user?.email || '');
   const [newPassword, setNewPassword] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Music Providers state
+  const [providers, setProviders] = useState<MusicProviderInfo[]>(() => musicProviderRegistry.getProviders());
+
+  const handleToggleProvider = (providerId: string, currentEnabled: boolean) => {
+    const newState = !currentEnabled;
+    musicProviderRegistry.setProviderEnabled(providerId, newState);
+    setProviders(musicProviderRegistry.getProviders());
+    showNotification(`Provedor ${newState ? 'ativado' : 'desativado'} com sucesso.`, 'info');
+  };
 
   // New Category
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -266,6 +284,149 @@ export function SettingsView({
           </div>
         </div>
 
+      </div>
+
+      {/* INTEGRAÇÕES MUSICAIS & PROVEDORES EXTERNOS (Regra 21) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+              <Globe className="w-5 h-5" />
+            </span>
+            <div>
+              <h2 className="font-black text-base text-slate-900 dark:text-white">
+                Integrações Musicais & Provedores Externos
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Gerencie conexões com APIs abertas, serviços de metadados e referências externas oficiais.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-black rounded-full border border-emerald-500/20">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              {providers.filter(p => p.enabled).length} Provedores Ativos
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {providers.map((p) => (
+            <div 
+              key={p.id}
+              className={`p-4 rounded-2xl border transition-all ${
+                p.enabled 
+                  ? 'bg-slate-50/70 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 shadow-xs' 
+                  : 'bg-slate-100/40 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800 opacity-60'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                      {p.name}
+                    </h3>
+                    {p.websiteUrl && (
+                      <a 
+                        href={p.websiteUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="text-slate-400 hover:text-blue-500"
+                        title="Visitar portal oficial"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                    {p.description}
+                  </p>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={p.enabled}
+                    onChange={() => handleToggleProvider(p.id, p.enabled)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {/* Status & Capacidades */}
+              <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/50 flex flex-wrap gap-2 text-[11px]">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold ${
+                  p.status === 'online' 
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-rose-500/10 text-rose-500'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                  {p.status === 'online' ? 'Online / Conectado' : 'Indisponível'}
+                </span>
+
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-200/60 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium">
+                  Tipo: {
+                    p.integrationType === 'public_open_api' ? 'API Pública Aberta' :
+                    p.integrationType === 'official_api' ? 'API Oficial' :
+                    p.integrationType === 'community_database' ? 'Acervo Comunitário' :
+                    'Referência Externa'
+                  }
+                </span>
+              </div>
+
+              {/* Tabela de Recursos Suportados */}
+              <div className="mt-3 grid grid-cols-2 gap-1 text-[11px] text-slate-600 dark:text-slate-400">
+                <div className="flex items-center gap-1.5">
+                  {p.capabilities.supportsSearch ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  )}
+                  <span>Busca Título/Artista</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {p.capabilities.supportsLyricsSearch ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  )}
+                  <span>Busca por Trecho da Letra</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {p.capabilities.supportsChords ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  )}
+                  <span>Cifras Harmônicas</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {p.capabilities.supportsImport ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  )}
+                  <span>Importação Direta</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-300 leading-relaxed">
+          <p className="font-bold flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
+            Compromisso de Transparência & Direitos Autorais:
+          </p>
+          <p className="mt-1 text-slate-600 dark:text-slate-400">
+            O Gestão Litúrgica Digital respeita integralmente os termos de uso dos serviços musicais e não realiza scraping não autorizado. Para portais sem API aberta de cifras (como Cifra Club ou Letras.mus.br), fornecemos links diretos e ferramentas de apoio para colagem manual de cifras pelo músico.
+          </p>
+        </div>
       </div>
 
       {/* Backup & Restore Section */}

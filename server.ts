@@ -426,6 +426,101 @@ Garanta enarmonia perfeita e armadura de clave lógica (em F maior use Bb, não 
     }
   });
 
+  // Providers Metadata and Status API
+  app.get("/api/providers/list", (req, res) => {
+    try {
+      const providers = [
+        {
+          id: 'community_catalog',
+          name: 'Acervo Litúrgico Comunitário (Integrado)',
+          description: 'Catálogo canônico integrado de cantos litúrgicos tradicionais católicos com cifras verificadas.',
+          integrationType: 'community_database',
+          websiteUrl: '',
+          capabilities: {
+            supportsSearch: true,
+            supportsLyricsSearch: true,
+            supportsLyrics: true,
+            supportsChords: true,
+            supportsImport: true,
+            supportsPreview: true,
+            supportsExternalLink: false
+          },
+          status: 'online',
+          requiresApiKey: false,
+          isConfigured: true,
+          enabled: true
+        },
+        {
+          id: 'itunes',
+          name: 'Apple iTunes Search API',
+          description: 'Catálogo oficial da Apple com faixas musicais, artistas, capas e prévias sonoras.',
+          integrationType: 'public_open_api',
+          websiteUrl: 'https://www.apple.com/itunes/',
+          apiDocsUrl: 'https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/index.html',
+          capabilities: {
+            supportsSearch: true,
+            supportsLyricsSearch: false,
+            supportsLyrics: false,
+            supportsChords: false,
+            supportsImport: true,
+            supportsPreview: true,
+            supportsExternalLink: true
+          },
+          status: 'online',
+          requiresApiKey: false,
+          isConfigured: true,
+          enabled: true
+        },
+        {
+          id: 'musicbrainz',
+          name: 'MusicBrainz (Metadados Abertos)',
+          description: 'Enciclopédia musical aberta e pública mundial mantida pela MetaBrainz Foundation.',
+          integrationType: 'public_open_api',
+          websiteUrl: 'https://musicbrainz.org',
+          apiDocsUrl: 'https://musicbrainz.org/doc/MusicBrainz_API',
+          capabilities: {
+            supportsSearch: true,
+            supportsLyricsSearch: false,
+            supportsLyrics: false,
+            supportsChords: false,
+            supportsImport: true,
+            supportsPreview: false,
+            supportsExternalLink: true
+          },
+          status: 'online',
+          requiresApiKey: false,
+          isConfigured: true,
+          enabled: true
+        },
+        {
+          id: 'cifraclub_ref',
+          name: 'Cifra Club (Referência Externa)',
+          description: 'Portal de cifras musicais. Permite busca de referências e abertura direta no Cifra Club.',
+          integrationType: 'external_reference',
+          websiteUrl: 'https://www.cifraclub.com.br',
+          capabilities: {
+            supportsSearch: true,
+            supportsLyricsSearch: false,
+            supportsLyrics: false,
+            supportsChords: false,
+            supportsImport: false,
+            supportsPreview: false,
+            supportsExternalLink: true
+          },
+          status: 'online',
+          requiresApiKey: false,
+          isConfigured: true,
+          enabled: true
+        }
+      ];
+
+      res.json({ providers });
+    } catch (err: any) {
+      console.error("Erro ao listar provedores:", err);
+      res.status(500).json({ error: "Falha ao listar provedores." });
+    }
+  });
+
   // AI Endpoint: Repertoire suggestions based on liturgical Sunday/Solemnity and available library
   app.post("/api/ai/suggest-repertoire", async (req, res) => {
     try {
